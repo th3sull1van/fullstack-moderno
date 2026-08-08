@@ -24,13 +24,26 @@ jobs:
 
       - name: Instalar pacotes TeX (PDF + EPUB)
         run: |
-          tlmgr option repository https://mirror.ctan.org/systems/texlive/tlnet
-          tlmgr install \
-            latexmk xetex biber makeindex fontspec babel-portuges microtype xcolor \
-            listings tcolorbox fancyhdr titlesec enumitem booktabs tools \
+          PKGS="latexmk xetex biber makeindex fontspec babel-portuges microtype \
+            xcolor listings tcolorbox fancyhdr titlesec enumitem booktabs tools \
             caption hyperref xurl biblatex etoolbox pgf amsmath amsfonts \
             tex-gyre csquotes colortbl hyph-utf8 tikzfill \
-            tex4ebook make4ht luaxml tex4ht luatex
+            tex4ebook make4ht luaxml tex4ht luatex"
+          # O mirror.ctan.org pode redirecionar para um espelho lento/fora do
+          # ar (já travou 10 min no ibiblio). Tenta mirrors diretos em ordem.
+          for repo in \
+            "https://ctan.math.illinois.edu/systems/texlive/tlnet" \
+            "https://mirror.math.princeton.edu/pub/CTAN/systems/texlive/tlnet" \
+            "https://mirrors.mit.edu/CTAN/systems/texlive/tlnet" \
+            "https://mirror.ctan.org/systems/texlive/tlnet"; do
+            echo ">> Tentando repositório: $repo"
+            if timeout 420 tlmgr option repository "$repo" \
+              && timeout 420 tlmgr install $PKGS; then
+              exit 0
+            fi
+            echo ">> Mirror falhou; tentando o próximo..."
+          done
+          exit 1
 
       - name: Reconstruir formato XeLaTeX (hifenização pt-BR)
         run: |
