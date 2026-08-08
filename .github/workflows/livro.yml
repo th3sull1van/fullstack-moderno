@@ -27,7 +27,7 @@ jobs:
           PKGS="latexmk xetex biber makeindex fontspec babel-portuges microtype \
             xcolor listings tcolorbox fancyhdr titlesec enumitem booktabs tools \
             caption hyperref xurl biblatex etoolbox pgf amsmath amsfonts \
-            tex-gyre csquotes colortbl hyph-utf8 tikzfill \
+            tex-gyre csquotes colortbl hyph-utf8 tikzfill kastrup \
             tex4ebook make4ht luaxml tex4ht luatex"
           # O mirror.ctan.org pode redirecionar para um espelho lento/fora do
           # ar (já travou 10 min no ibiblio). Tenta mirrors diretos em ordem.
@@ -61,9 +61,14 @@ jobs:
             rm -f livro/main.fdb_latexmk livro/main.aux livro/main.xdv \
               livro/main.toc livro/main.out livro/main.idx
             if bash scripts/build-pdf.sh; then exit 0; fi
-            miss=$(grep -oE "File \`[^']+\.(sty|cls|def|cfg)' not found" \
-              livro/main.log 2>/dev/null | sed "s/File \`//;s/' not found//" \
-              | sort -u)
+            # Dois formatos de erro: "File `x.sty' not found" (LaTeX) e
+            # "I can't find file `x'" (TeX nativo, sem extensão).
+            miss=$({ \
+              grep -oE "File \`[^']+\.(sty|cls|def|cfg|tex|4ht)' not found" \
+                livro/main.log 2>/dev/null | sed "s/File \`//;s/' not found//"; \
+              grep -oE "I can't find file \`[^']+'" \
+                livro/main.log 2>/dev/null | sed "s/I can't find file \`//;s/'//"; \
+            } | sort -u)
             if [ -z "$miss" ]; then
               echo "Falha sem arquivo faltante identificável"; exit 1
             fi
@@ -73,9 +78,11 @@ jobs:
               # raramente é o nome do pacote: tikzfill.image.sty -> tikzfill).
               # O awk casa só linhas de caminho que terminam exatamente em
               # /$f (evita falsos positivos tipo lwarp-pdfcol.sty para pdfcol).
+              # $f pode vir sem extensão (erro nativo do TeX); casa também
+              # caminhos com /arquivo.extensão.
               pkg=$(tlmgr search --global --file "$f" 2>/dev/null \
                 | awk -v f="$f" '/^[a-z0-9._-]+:$/ { pkg=$0; sub(/:$/, "", pkg) } \
-                    $0 ~ ("/" f "$") { print pkg; exit }')
+                    $0 ~ ("/" f "(\\.|$)") { print pkg; exit }')
               if [ -n "$pkg" ]; then
                 echo ">> Instalando pacote '$pkg' (contém $f)"
                 tlmgr install "$pkg"
@@ -92,17 +99,22 @@ jobs:
             rm -f livro/main.fdb_latexmk livro/main.aux livro/main.xdv \
               livro/main.toc livro/main.out livro/main.idx
             if bash scripts/build-epub.sh; then exit 0; fi
-            miss=$(grep -oE "File \`[^']+\.(sty|cls|def|cfg)' not found" \
-              livro/epub-build.log 2>/dev/null | sed "s/File \`//;s/' not found//" \
-              | sort -u)
+            miss=$({ \
+              grep -oE "File \`[^']+\.(sty|cls|def|cfg|tex|4ht)' not found" \
+                livro/epub-build.log 2>/dev/null | sed "s/File \`//;s/' not found//"; \
+              grep -oE "I can't find file \`[^']+'" \
+                livro/epub-build.log 2>/dev/null | sed "s/I can't find file \`//;s/'//"; \
+            } | sort -u)
             if [ -z "$miss" ]; then
               echo "Falha sem arquivo faltante identificável"; exit 1
             fi
             echo ">> Arquivos faltantes: $miss"
             for f in $miss; do
+              # $f pode vir sem extensão (erro nativo do TeX); casa também
+              # caminhos com /arquivo.extensão.
               pkg=$(tlmgr search --global --file "$f" 2>/dev/null \
                 | awk -v f="$f" '/^[a-z0-9._-]+:$/ { pkg=$0; sub(/:$/, "", pkg) } \
-                    $0 ~ ("/" f "$") { print pkg; exit }')
+                    $0 ~ ("/" f "(\\.|$)") { print pkg; exit }')
               if [ -n "$pkg" ]; then
                 echo ">> Instalando pacote '$pkg' (contém $f)"
                 tlmgr install "$pkg"
