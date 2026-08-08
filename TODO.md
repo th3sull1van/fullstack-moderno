@@ -17,7 +17,9 @@ atualizado a cada rodada de trabalho.
 - [x] Revisão por pares: **Rodadas 1, 1.1, 2 e 3** registradas em `revisao/relatorios/`
 - [x] **Índice remissivo** (151 entradas) + script `scripts/verificar-indice.py`
 - [x] URLs de `referencias.bib` validadas (26/26 vivas, `scripts/verificar-urls.py`)
-- [x] Commit inicial criado (falta push — ver Publicação)
+- [x] Repositório publicado: **https://github.com/th3sull1van/fullstack-moderno** (branch `main`)
+- [x] **Release v0.3** publicada com `main.pdf` e `main.epub` (GitHub Releases)
+- [x] **CI do livro**: `.github/workflows/livro.yml` — compila PDF/EPUB a cada tag `v*` e anexa à release
 - [x] Código dos capítulos **01–04, 06–15 e 20–25** implementados (102 testes verdes nos 11 projetos testáveis — ver `codigo/README.md`)
 - [x] **Gabaritos das fixações**: `codigo/--solucoes/cap01..cap25/solucoes-capNN.md` (+ README)
 - [x] **6 diagramas TikZ** (requisição, ISR, DER, SkillHub, AWS, RAG) — 1 por parte
@@ -57,9 +59,9 @@ atualizado a cada rodada de trabalho.
 
 ## 🚀 Publicação
 
-- [ ] **P0** Push do commit inicial para o GitHub (commit já criado localmente)
-- [ ] **P1** Publicar `main.pdf` e `main.epub` via **GitHub Releases** (são ignorados no git por serem artefatos de build)
-- [ ] **P2** CI do livro (compilar PDF/EPUB em cada tag) — reutilizar os workflows do cap. 18
+- [x] **P0** Push do commit inicial para o GitHub (repo público criado, branch `main`)
+- [x] **P1** Publicar `main.pdf` e `main.epub` via **GitHub Releases** (release v0.3)
+- [x] **P2** CI do livro (`.github/workflows/livro.yml` — compilar PDF/EPUB em cada tag e anexar à release)
 
 ## 🧭 Roadmap (ideias, não compromissos)
 

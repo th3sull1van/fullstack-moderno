@@ -1,0 +1,57 @@
+# CI do livro: compila o PDF e o EPUB a cada tag (v*) e anexa os artefatos
+# à release correspondente. Também permite build manual (workflow_dispatch).
+# Requer: TinyTeX com os pacotes listados no README ("Como compilar o livro").
+name: livro
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write # upload dos artefatos na release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar TinyTeX
+        run: |
+          wget -qO- "https://yihui.org/tinytex/install-bin-unix.sh" | sh
+          echo "$HOME/.TinyTeX/bin/x86_64-linux" >> "$GITHUB_PATH"
+
+      - name: Instalar pacotes TeX (PDF + EPUB)
+        run: |
+          tlmgr option repository https://mirror.ctan.org/systems/texlive/tlnet
+          tlmgr install \
+            latexmk xetex biber fontspec babel-portuges microtype xcolor \
+            listings tcolorbox fancyhdr titlesec enumitem booktabs tools \
+            caption hyperref xurl biblatex etoolbox pgf amsmath amsfonts \
+            tex-gyre csquotes \
+            tex4ebook make4ht luaxml tex4ht
+
+      - name: Validação estrutural (sem TeX)
+        run: bash scripts/verificar-latex.sh
+
+      - name: Compilar PDF
+        run: bash scripts/build-pdf.sh
+
+      - name: Compilar EPUB
+        run: bash scripts/build-epub.sh
+
+      - name: Conferir artefatos
+        run: |
+          ls -la livro/main.pdf livro/main.epub
+          test -s livro/main.pdf
+          test -s livro/main.epub
+
+      - name: Anexar artefatos à release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            livro/main.pdf
+            livro/main.epub
