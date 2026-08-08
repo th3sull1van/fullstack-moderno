@@ -30,7 +30,7 @@ jobs:
             listings tcolorbox fancyhdr titlesec enumitem booktabs tools \
             caption hyperref xurl biblatex etoolbox pgf amsmath amsfonts \
             tex-gyre csquotes colortbl hyph-utf8 tikzfill \
-            tex4ebook make4ht luaxml tex4ht
+            tex4ebook make4ht luaxml tex4ht luatex
 
       - name: Reconstruir formato XeLaTeX (hifenização pt-BR)
         run: |
@@ -103,8 +103,12 @@ jobs:
       - name: Conferir artefatos
         run: |
           ls -la livro/main.pdf livro/main.epub
+          # Tamanhos mínimos: PDF do livro ~1 MB, EPUB ~300 KB. Um EPUB de
+          # alguns bytes significa conversão falhou silenciosamente.
           test -s livro/main.pdf
           test -s livro/main.epub
+          test "$(stat -c%s livro/main.pdf)" -gt 500000
+          test "$(stat -c%s livro/main.epub)" -gt 100000
 
       - name: Anexar artefatos à release
         if: startsWith(github.ref, 'refs/tags/')
