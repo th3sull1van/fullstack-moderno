@@ -33,6 +33,11 @@ Fastify & 5.x (usado 5.11.3) & \url{https://fastify.dev} \\
 Zod & 4.x (usado 4.4.3) & \url{https://zod.dev} \\
 Playwright & 1.x (usado 1.62.1) & \url{https://playwright.dev} \\
 OWASP Top 10 & 2025 & \url{https://owasp.org/Top10/2025/en/} \\
+BullMQ (cap.~21) & 5.x (usado 5.81.3) & \url{https://docs.bullmq.io} \\
+ioredis (cap.~21) & 5.x (usado 5.11.1) & \url{https://redis.github.io/ioredis} \\
+pino (cap.~22) & 9.x (usado 9.14.0) & \url{https://getpino.io} \\
+prom-client (cap.~22) & 15.x (usado 15.1.3) & \url{https://github.com/siimon/prom-client} \\
+tsx (caps.~21/24) & 4.x (usado 4.23.11) & \url{https://tsx.is} \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -68,6 +73,10 @@ completo, infraestrutura LaTeX, repositório de código e sistema de revisão. \
 0.2 & ago/2026 & Rodada editorial 2: capítulos 5--25 expandidos para texto
 completo; códigos 06--19 implementados e testados; revisão por pares completa
 (rodada 3) com validação das fontes; índice remissivo adicionado. \\
+0.3 & ago/2026 & Rodada de prioridades da análise didática: gabaritos das
+fixações (138, em \texttt{codigo/--solucoes/}), 6 diagramas TikZ com fallback
+no EPUB, ambiente ``Sênior N.'', mapa do leitor, prefácio e apêndice~\ref{apendice:solucoes}
+alinhados, e referências de código dos capítulos 20--25 (21 testes novos). \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -75,10 +84,13 @@ completo; códigos 06--19 implementados e testados; revisão por pares completa
 \section{Mudanças futuras previstas}
 
 \begin{itemize}[leftmargin=*, itemsep=0.4em]
-  \item Projetos de código dos capítulos 5, 20--25 no repositório \texttt{codigo/}
-  (seguindo o mapa do \texttt{README});
-  \item Preencher \texttt{codigo/--solucoes/} com as soluções executáveis dos
-  exercícios (prometidas no apêndice~\ref{apendice:solucoes});
+  \item Projetos de código dos capítulos 5 e 16--19 no repositório
+  \texttt{codigo/} (os capítulos 20--25 já têm referência implementada);
+  \item Validações complementares: testes visuais do capítulo~9 (Playwright),
+  execução do capítulo~12 num PostgreSQL real e \texttt{terraform validate}
+  do capítulo~23;
+  \item Checkpoints ``Revisão da Parte X'' e narrativas de debugging (itens P2
+  da análise didática em \texttt{revisao/analise-didatica.md});
   \item Nova rodada de verificação de versões (próximo trimestre — nov/2026);
   \item Conversão gradual das listagens dos capítulos 5--25 para
   \texttt{\textbackslash lstinputlisting} (fonte única de verdade no \texttt{codigo/});

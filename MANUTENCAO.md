@@ -26,6 +26,11 @@ cada revisão. O apêndice E do livro (`livro/capitulos/apendice-e-manutencao.te
 | GitHub Actions | — | https://docs.github.com/actions | 2026-08-08 |
 | OWASP Top 10 | 2025 | https://owasp.org/Top10/2025/en/ | 2026-08-08 |
 | Vercel AI SDK | 5.x | https://ai-sdk.dev | 2026-08-08 |
+| BullMQ (cap. 21) | 5.x (usado 5.81.3) | https://docs.bullmq.io | 2026-08-08 |
+| ioredis (cap. 21) | 5.x (usado 5.11.1) | https://redis.github.io/ioredis | 2026-08-08 |
+| pino (cap. 22) | 9.x (usado 9.14.0) | https://getpino.io | 2026-08-08 |
+| prom-client (cap. 22) | 15.x (usado 15.1.3) | https://github.com/siimon/prom-client | 2026-08-08 |
+| tsx (caps. 21/24) | 4.x (usado 4.23.11) | https://tsx.is | 2026-08-08 |
 
 ## Fontes de mercado consultadas
 
@@ -38,11 +43,22 @@ cada revisão. O apêndice E do livro (`livro/capitulos/apendice-e-manutencao.te
 
 ## Estado editorial dos capítulos
 
-| Capítulo | Estado |
-|----------|--------|
-| 01–04 (Parte I) | ✅ Texto completo + código executável |
-| 05–25 | ✅ Texto completo (rodada editorial 2) — código: 06–19 ✅, 05 e 20–25 em preparação |
-| Apêndices A–F | ✅ Completos (instalação, soluções, glossário, referências, manutenção, revisão) |
+| Capítulo | Texto | Código |
+|----------|-------|--------|
+| 01–04 (Parte I) | ✅ Completo | ✅ Executável |
+| 05 | ✅ Completo | 📝 em preparação |
+| 06–15 | ✅ Completo | ✅ Executável e testado |
+| 16–19 | ✅ Completo | 📝 em preparação (só README) |
+| 20–25 | ✅ Completo | ✅ Referência implementada (20/21/22/24 testados; 23 IaC estática; 25 templates) |
+| Apêndices A–F | ✅ Completos | — |
+
+### Extras didáticos (2026-08-08)
+
+- ✅ **Gabaritos** das fixações: `codigo/--solucoes/cap01–25/solucoes-capNN.md` (138 exercícios);
+- ✅ **6 diagramas TikZ** (requisição, ISR, DER, SkillHub, AWS, RAG) com fallback no EPUB;
+- ✅ Ambiente `seniores` ("Sênior N.") nos 25 capítulos; mapa do leitor no guia;
+- ✅ Análise didática em `revisao/analise-didatica.md` (métricas em `scripts/metricas-didatica.py`);
+- PDF: **237 páginas, 0 overfull hbox, 0 referências indefinidas**; EPUB regenerado.
 
 ## Política de atualização
 
@@ -61,6 +77,7 @@ cada revisão. O apêndice E do livro (`livro/capitulos/apendice-e-manutencao.te
 | 2026-08-08 | Rodada 2: capítulos 05–25 em texto completo (PDF 233p, 0 overfull). |
 | 2026-08-08 | Códigos 06–19 implementados e testados (104 testes verdes). |
 | 2026-08-08 | Rodada 3: revisão completa (técnica/pedagógica/fontes), URLs 26/26 válidas, índice remissivo adicionado (PDF 235p). |
+| 2026-08-08 | Rodada de prioridades da análise didática: gabaritos das fixações (138), 6 diagramas TikZ, ambiente `seniores`, mapa do leitor, projetos 20–25 implementados (21 testes novos; 102 totais nos 11 projetos), prefácio/apêndice B alinhados (PDF 237p). |
 
 ## Mudanças futuras previstas
 
@@ -69,6 +86,10 @@ cada revisão. O apêndice E do livro (`livro/capitulos/apendice-e-manutencao.te
 - [x] Gerar e validar EPUB (`scripts/build-epub.sh`);
 - [x] Validar URLs de `referencias.bib` (26/26, 2026-08-08);
 - [x] Índice remissivo (`makeindex` + `scripts/gerar-indice.py`);
-- [ ] Implementar códigos 05 e 20–25 e preencher `codigo/--solucoes/`;
+- [x] Gabaritos das fixações em `codigo/--solucoes/` (138 exercícios, caps. 1–25);
+- [x] Projetos 20–25 (referência implementada e testada) + 6 diagramas TikZ + ambiente `seniores`;
+- [ ] Implementar códigos 05 e 16–19;
+- [ ] Validações complementares: Playwright do cap. 09, PostgreSQL real do cap. 12, `terraform validate` do cap. 23;
+- [ ] Checkpoints "Revisão da Parte X" e narrativas de debugging (análise didática, P2);
 - [ ] Reconsultar versões (nov/2026);
 - [ ] Publicação sob CC BY 4.0 (texto) e MIT (código).

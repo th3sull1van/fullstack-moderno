@@ -8,6 +8,15 @@ simulada.
 
 **Texto:** CC BY 4.0 · **Código:** MIT (livre e permissivo para tudo).
 
+## Transparência: criação com IA
+
+Este livro foi **100% criado com inteligência artificial** — texto, código,
+diagramas, exercícios e processo editorial — usando o modelo
+**DeepSeek V4 Flash 0731** executado no harness **FreeBuff**. A revisão por
+pares também foi simulada com agentes de IA independentes (ver `revisao/`),
+e as versões e datas de consulta das documentações ficam em
+`MANUTENCAO.md`.
+
 ## Conteúdo
 
 | Parte | Capítulos | Nível |
