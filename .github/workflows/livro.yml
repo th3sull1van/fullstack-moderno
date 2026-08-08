@@ -140,6 +140,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
+          # Permite re-executar o workflow numa tag cuja release já tem
+          # assets (ex.: backfill da v0.3) sem falhar em upload duplicado.
+          overwrite: true
           files: |
             livro/main.pdf
             livro/main.epub
