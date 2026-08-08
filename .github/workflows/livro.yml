@@ -29,17 +29,45 @@ jobs:
             latexmk xetex biber fontspec babel-portuges microtype xcolor \
             listings tcolorbox fancyhdr titlesec enumitem booktabs tools \
             caption hyperref xurl biblatex etoolbox pgf amsmath amsfonts \
-            tex-gyre csquotes \
+            tex-gyre csquotes colortbl hyph-utf8 \
             tex4ebook make4ht luaxml tex4ht
+
+      - name: Reconstruir formato XeLaTeX (hifenização pt-BR)
+        run: |
+          fmtutil --byengine xelatex || fmtutil-sys --byengine xelatex
 
       - name: Validação estrutural (sem TeX)
         run: bash scripts/verificar-latex.sh
 
-      - name: Compilar PDF
-        run: bash scripts/build-pdf.sh
+      - name: Compilar PDF (auto-instala pacotes faltantes)
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if bash scripts/build-pdf.sh; then exit 0; fi
+            miss=$(grep -oE "File \`[^']+\.(sty|cls|def|cfg)' not found" \
+              livro/main.log 2>/dev/null | sed "s/File \`//;s/' not found//" \
+              | sort -u | tr '\n' ' ')
+            if [ -z "$miss" ]; then
+              echo "Falha sem arquivo faltante identificável"; exit 1
+            fi
+            echo ">> Instalando pacotes faltantes: $miss"
+            tlmgr install $miss
+          done
+          exit 1
 
-      - name: Compilar EPUB
-        run: bash scripts/build-epub.sh
+      - name: Compilar EPUB (auto-instala pacotes faltantes)
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if bash scripts/build-epub.sh; then exit 0; fi
+            miss=$(grep -oE "File \`[^']+\.(sty|cls|def|cfg)' not found" \
+              livro/epub-build.log 2>/dev/null | sed "s/File \`//;s/' not found//" \
+              | sort -u | tr '\n' ' ')
+            if [ -z "$miss" ]; then
+              echo "Falha sem arquivo faltante identificável"; exit 1
+            fi
+            echo ">> Instalando pacotes faltantes: $miss"
+            tlmgr install $miss
+          done
+          exit 1
 
       - name: Conferir artefatos
         run: |
