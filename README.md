@@ -34,8 +34,9 @@ e as versões e datas de consulta das documentações ficam em
 - **Capítulos 1–25**: texto completo, didático e no padrão editorial da Parte I
   (rodada editorial 2 concluída em 08/08/2026);
 - **Apêndices A–F**: completos;
-- **Código**: `codigo/` com os projetos 01–04 prontos e o mapa dos demais
-  (SkillHub e projetos 05–25 a implementar);
+- **Código**: `codigo/` com os projetos 01–04, 06–15 e 20–25 implementados
+  (102 testes verdes nos 11 projetos testáveis) e o mapa dos pendentes
+  (05 e 16–19) em `codigo/README.md`;
 - **Revisão por pares**: sistema simulado implementado em `revisao/`;
 - **Manutenção**: versões e datas em `MANUTENCAO.md`.
 
@@ -53,13 +54,15 @@ MANUTENCAO.md # versões, datas de consulta e mudanças futuras
 ## Como compilar o livro
 
 Requisitos: **TeX Live 2023+** (ou TinyTeX) com XeLaTeX, latexmk, biber e os
-pacotes (lista validada em 08/08/2026):
+pacotes (lista validada em 08/08/2026, **incluindo os necessários numa
+instalação limpa** — o mesmo conjunto que o CI do livro instala):
 
 ```
-latexmk xetex biber fontspec babel-portuges microtype xcolor listings
-tcolorbox fancyhdr titlesec enumitem booktabs tools caption hyperref xurl
-biblatex etoolbox pgf amsmath amsfonts tex-gyre csquotes   # PDF
-tex4ebook make4ht luaxml                                  # EPUB
+latexmk xetex biber makeindex fontspec babel-portuges microtype xcolor
+listings tcolorbox fancyhdr titlesec enumitem booktabs tools caption hyperref
+xurl biblatex etoolbox pgf amsmath amsfonts tex-gyre csquotes
+colortbl hyph-utf8 tikzfill kastrup              # PDF (faltantes em instalação limpa)
+tex4ebook make4ht luaxml tex4ht luatex           # EPUB (texlua roda o make4ht)
 ```
 
 > As fontes (TeX Gyre Pagella/Heros, fallback Latin Modern) são carregadas por
@@ -83,12 +86,31 @@ cd livro && ../scripts/build-epub.sh
 > `tlmgr option repository https://mirror.ctan.org/systems/texlive/tlnet`
 > e depois o `tlmgr install` com a lista acima.
 
-## Status do build (08/08/2026, TinyTeX local)
+## Status do build (08/08/2026)
 
-- **PDF**: `livro/main.pdf` — **233 páginas**, **0 overfull hbox**, 0 referências indefinidas;
+- **PDF**: `livro/main.pdf` — **237 páginas**, **0 overfull hbox**, 0 referências indefinidas;
 - **EPUB**: `livro/main.epub` — conteúdo completo, `mimetype` spec-compliant
   (primeiro e sem compressão), empacotado via `scripts/empacotar-epub.py`
   (o Windows não tem `zip`).
+
+## Releases e CI
+
+O livro é publicado via **GitHub Releases** com compilação automatizada:
+
+1. **Tags `v*` disparam o CI** (`.github/workflows/livro.yml`): o workflow
+   instala TinyTeX, compila o **PDF** e o **EPUB** e anexa `main.pdf` +
+   `main.epub` à release da tag;
+2. **Os artefatos das releases são os do CI** (TeX Live do GitHub), não os do
+   TinyTeX local — que podem diferir em poucos bytes por versões de pacotes;
+3. **`overwrite: true`** permite **backfill**: re-executar o workflow numa tag
+   já publicada substitui os assets sem falhar em upload duplicado;
+4. **Build manual**: `gh workflow run livro.yml` compila e valida sem anexar
+   à release (o upload só roda em tags);
+5. **Tamanhos mínimos validados** (PDF > 500 KB, EPUB > 100 KB) — artefato
+   quebrado falha o workflow em vez de subir silenciosamente.
+
+Última release: **v0.3** com os artefatos compilados pelo CI
+(https://github.com/th3sull1van/fullstack-moderno/releases/tag/v0.3).
 
 ## Como usar o código
 

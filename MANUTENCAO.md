@@ -69,6 +69,33 @@ cada revisão. O apêndice E do livro (`livro/capitulos/apendice-e-manutencao.te
    `\lstinputlisting`);
 4. **Feedback**: issues/PRs no repositório.
 
+## Política de releases
+
+O repositório público (**https://github.com/th3sull1van/fullstack-moderno**)
+publica o livro via **GitHub Releases**, com compilação automatizada:
+
+1. **Tags `v*` disparam o CI** (`.github/workflows/livro.yml`): ao criar/push
+   de uma tag `v0.x`, o workflow instala TinyTeX num runner Linux, compila o
+   **PDF** (`scripts/build-pdf.sh`) e o **EPUB** (`scripts/build-epub.sh`)
+   e anexa `main.pdf` + `main.epub` à release daquela tag;
+2. **Artefatos do CI são a fonte oficial** das releases — os bytes anexados
+   são os compilados no TeX Live do GitHub (não os do TinyTeX local, que
+   podem diferir em poucos bytes por versões de pacotes);
+3. **`overwrite: true` no passo de upload** permite **backfill** de releases
+   existentes: re-executar o workflow numa tag já publicada substitui os
+   assets sem falhar em upload duplicado (usado para atualizar a v0.3 com
+   os artefatos do CI);
+4. **Fluxo manual**: `gh workflow run livro.yml` compila e valida sem anexar
+   à release (o passo de upload só roda em `refs/tags/`);
+5. **Regras dos artifacts**: a compilação valida tamanhos mínimos
+   (PDF > 500 KB, EPUB > 100 KB) — um artefato quebrado falha o workflow em
+   vez de subir silenciosamente;
+6. **Nova versão do livro** (mudança de conteúdo) exige **nova tag**; mudanças
+   só de CI/scripts não exigem release nova (backfill via `overwrite`).
+
+Para conferir os artefatos de uma release contra o CI:
+`gh run list --workflow livro.yml` e `gh release view <tag> --json assets`.
+
 ## Histórico
 
 | Data | Ação |
@@ -78,6 +105,7 @@ cada revisão. O apêndice E do livro (`livro/capitulos/apendice-e-manutencao.te
 | 2026-08-08 | Códigos 06–19 implementados e testados (104 testes verdes). |
 | 2026-08-08 | Rodada 3: revisão completa (técnica/pedagógica/fontes), URLs 26/26 válidas, índice remissivo adicionado (PDF 235p). |
 | 2026-08-08 | Rodada de prioridades da análise didática: gabaritos das fixações (138), 6 diagramas TikZ, ambiente `seniores`, mapa do leitor, projetos 20–25 implementados (21 testes novos; 102 totais nos 11 projetos), prefácio/apêndice B alinhados (PDF 237p). |
+| 2026-08-08 | Publicação: repositório público criado (`th3sull1van/fullstack-moderno`, branch `main`), release **v0.3** com PDF/EPUB e CI do livro (`.github/workflows/livro.yml` — compila PDF/EPUB em tags `v*` e anexa à release; backfill da v0.3 com artefatos do CI via `overwrite: true`). |
 
 ## Mudanças futuras previstas
 
@@ -92,4 +120,4 @@ cada revisão. O apêndice E do livro (`livro/capitulos/apendice-e-manutencao.te
 - [ ] Validações complementares: Playwright do cap. 09, PostgreSQL real do cap. 12, `terraform validate` do cap. 23;
 - [ ] Checkpoints "Revisão da Parte X" e narrativas de debugging (análise didática, P2);
 - [ ] Reconsultar versões (nov/2026);
-- [ ] Publicação sob CC BY 4.0 (texto) e MIT (código).
+- [x] Publicação: repositório público, release v0.3 com PDF/EPUB e CI do livro em tags `v*` (`.github/workflows/livro.yml`, `overwrite: true` p/ backfill).

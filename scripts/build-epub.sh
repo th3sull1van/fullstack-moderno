@@ -22,7 +22,7 @@ if [ ! -f main.epub ]; then
     # Só empacota se a conversão realmente gerou HTML (o tex4ebook pode
     # falhar cedo — ex.: sem texlua — e deixar a pasta quase vazia; nesse
     # caso o EPUB sairia com alguns bytes e "sucesso" enganoso).
-    htmls=$(find main-epub -maxdepth 1 -name '*.html' 2>/dev/null | wc -l)
+    htmls=$(find main-epub -name '*.html' 2>/dev/null | wc -l)
     if [ "$htmls" -eq 0 ]; then
       echo "ERRO: tex4ebook falhou antes de gerar o HTML. Últimas linhas do log:" >&2
       tail -20 epub-build.log >&2

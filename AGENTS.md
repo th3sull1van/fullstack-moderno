@@ -30,8 +30,10 @@ TODO.md         Quadro geral de pendências
 
 1. **Nunca descarte, sobrescreva ou faça `git add -A`/`git commit` sem
    permissão explícita.** O repositório é um checkout local compartilhado —
-   verifique `git status` antes de qualquer operação de Git. Hoje ele não tem
-   commits; tudo é untracked.
+   verifique `git status` antes de qualquer operação de Git. O repositório
+   público é `th3sull1van/fullstack-moderno` (branch `main`); **nunca `git
+   push`, crie release ou mexa em tags sem pedido explícito** (ver
+   "Releases e publicação").
 2. **Uma fonte de verdade por assunto**, para não divergir:
    - versões das tecnologias → `MANUTENCAO.md` + apêndice E (atualize os dois);
    - exemplos de código → `codigo/` (o livro referencia via `\lstinputlisting`);
@@ -103,6 +105,30 @@ relatório em `revisao/relatorios/rodada-YYYY-MM-DD.md` com achados por
 severidade (bloqueante / maior / menor / sugestão) e plano de correção. Ao
 terminar uma rodada, atualize o relatório e o `TODO.md`.
 
+## Releases e publicação
+
+O livro é publicado via **GitHub Releases** com compilação automatizada
+(ver `MANUTENCAO.md` → "Política de releases"):
+
+1. **Tags `v*` disparam o CI** (`.github/workflows/livro.yml`): o workflow
+   instala TinyTeX, compila PDF e EPUB e anexa `main.pdf` + `main.epub` à
+   release da tag;
+2. **Os artefatos das releases são os do CI** (TeX Live do GitHub), não os do
+   TinyTeX local — que podem diferir em poucos bytes por versões de pacotes;
+3. **`overwrite: true`** no upload permite **backfill**: re-executar o
+   workflow numa tag já publicada substitui os assets sem falhar em upload
+   duplicado;
+4. **Build manual sem release**: `gh workflow run livro.yml` compila e valida
+   sem anexar (o upload só roda em `refs/tags/`);
+5. **Tamanhos mínimos validados** (PDF > 500 KB, EPUB > 100 KB) — artefato
+   quebrado falha o workflow em vez de subir silenciosamente;
+6. **Nova versão de conteúdo** exige **nova tag** (v0.4+); mudanças só de
+   CI/scripts não exigem release nova (backfill via `overwrite`).
+
+Ao publicar: atualize `MANUTENCAO.md`/README/`TODO.md`, crie a tag com `gh
+release create vX.Y <pdf> <epub>` (ou apenas `git push origin vX.Y` para o CI
+anexar) e nunca apague/recrie tags sem pedido explícito.
+
 ## Fluxo típico por tipo de tarefa
 
 | Tarefa | Passos |
@@ -110,4 +136,4 @@ terminar uma rodada, atualize o relatório e o `TODO.md`.
 | Editar capítulo | editar `livro/capitulos/NN-*.tex` → `scripts/verificar-latex.sh` → compilar PDF → conferir overfull/refs |
 | Implementar projeto | ler a caixa "Projeto do capítulo" no `.tex` do capítulo → criar `codigo/capNN-nome/` → implementar + testes + README → `npm run typecheck && npm test` → atualizar mapa em `codigo/README.md` |
 | Revisão | seguir `revisao/README.md` → aplicar checklists → relatório por severidade |
-| Publicar | `git status` → commit apenas dos arquivos do escopo → nunca `git push` sem pedido |
+| Publicar | `git status` → commit apenas dos arquivos do escopo → ver "Releases e publicação" → `gh release create` ou push de tag (nunca sem pedido) |

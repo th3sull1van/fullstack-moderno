@@ -19,7 +19,8 @@ atualizado a cada rodada de trabalho.
 - [x] URLs de `referencias.bib` validadas (26/26 vivas, `scripts/verificar-urls.py`)
 - [x] Repositório publicado: **https://github.com/th3sull1van/fullstack-moderno** (branch `main`)
 - [x] **Release v0.3** publicada com `main.pdf` e `main.epub` (GitHub Releases)
-- [x] **CI do livro**: `.github/workflows/livro.yml` — compila PDF/EPUB a cada tag `v*` e anexa à release
+- [x] **CI do livro**: `.github/workflows/livro.yml` — compila PDF/EPUB a cada tag `v*` e anexa à release (`overwrite: true` p/ backfill; backfill da v0.3 com artefatos do CI)
+- [x] **Política de releases** documentada em `MANUTENCAO.md`, `README.md` e `AGENTS.md`
 - [x] Código dos capítulos **01–04, 06–15 e 20–25** implementados (102 testes verdes nos 11 projetos testáveis — ver `codigo/README.md`)
 - [x] **Gabaritos das fixações**: `codigo/--solucoes/cap01..cap25/solucoes-capNN.md` (+ README)
 - [x] **6 diagramas TikZ** (requisição, ISR, DER, SkillHub, AWS, RAG) — 1 por parte
@@ -51,9 +52,7 @@ atualizado a cada rodada de trabalho.
 
 ## 🛠️ Manutenção
 
-- [ ] **P1** Atualizar `MANUTENCAO.md` + apêndice E:
-  - estado editorial (soluções, diagramas, projetos 20–25, análise didática)
-  - versões **reais usadas no código**: Vitest 4, Vite 8, Fastify 5, Tailwind 4.3, Prisma 6.19, zod 4.4, Node 26 (livro registra Vitest 3.x, Node 24 LTS)
+- [x] **P1** `MANUTENCAO.md` + apêndice E atualizados (estado editorial, versões reais do código, histórico, política de releases)
 - [ ] **P1** Reconsultar versões das documentações oficiais (**nov/2026**, conforme política trimestral)
 - [ ] **P2** Instalar `tidy` (opcional) para EPUB ainda mais rigoroso
 
