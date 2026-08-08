@@ -53,8 +53,11 @@ jobs:
             for f in $miss; do
               # Mapeia o arquivo para o pacote que o contém (nome do arquivo
               # raramente é o nome do pacote: tikzfill.image.sty -> tikzfill).
-              pkg=$(tlmgr search --global --file "/$f" 2>/dev/null \
-                | grep -oE '^[a-z0-9._-]+(?=:)' | head -1)
+              # O awk casa só linhas de caminho que terminam exatamente em
+              # /$f (evita falsos positivos tipo lwarp-pdfcol.sty para pdfcol).
+              pkg=$(tlmgr search --global --file "$f" 2>/dev/null \
+                | awk -v f="$f" '/^[a-z0-9._-]+:$/ { pkg=$0; sub(/:$/, "", pkg) } \
+                    $0 ~ ("/" f "$") { print pkg; exit }')
               if [ -n "$pkg" ]; then
                 echo ">> Instalando pacote '$pkg' (contém $f)"
                 tlmgr install "$pkg"
@@ -77,8 +80,9 @@ jobs:
             fi
             echo ">> Arquivos faltantes: $miss"
             for f in $miss; do
-              pkg=$(tlmgr search --global --file "/$f" 2>/dev/null \
-                | grep -oE '^[a-z0-9._-]+(?=:)' | head -1)
+              pkg=$(tlmgr search --global --file "$f" 2>/dev/null \
+                | awk -v f="$f" '/^[a-z0-9._-]+:$/ { pkg=$0; sub(/:$/, "", pkg) } \
+                    $0 ~ ("/" f "$") { print pkg; exit }')
               if [ -n "$pkg" ]; then
                 echo ">> Instalando pacote '$pkg' (contém $f)"
                 tlmgr install "$pkg"
