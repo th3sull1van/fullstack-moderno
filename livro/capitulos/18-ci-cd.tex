@@ -1,0 +1,294 @@
+% ============================================================================
+% CAPÍTULO 18 — CI/CD\index{CI/CD}: entrega contínua
+% Status: texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{CI/CD: Entrega Contínua}
+\label{cap:cicd}
+
+\begin{caixaconceito}
+\textbf{CI} (Integração Contínua) roda testes e checagens a cada push;
+\textbf{CD} (Entrega Contínua) publica e implanta automaticamente após a
+aprovação. Com o \textbf{GitHub Actions}, o pipeline\index{pipeline} vive no próprio
+repositório — o padrão de mercado para projetos TypeScript.
+\end{caixaconceito}
+
+Você já tem uma suíte de testes (capítulo~\ref{cap:testes}) e uma imagem
+Docker (capítulo~\ref{cap:docker}). O problema agora é \emph{garantia}: quem
+garante que o código que entrou na \texttt{main} passou nos testes? Quem
+garante que o build funciona em uma máquina limpa? Quem implanta? A resposta
+deste capítulo: \emph{ninguém decide na hora} — o processo decide, sempre, do
+mesmo jeito. É isso que separa projeto de hobby de produto.
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Escrever workflows do GitHub Actions\index{GitHub Actions} (\texttt{on}, \texttt{jobs}, \texttt{steps});
+  \item Rodar lint, typecheck e testes em CI a cada push e Pull Request;
+  \item Caching de dependências e artefatos\index{artefatos};
+  \item Publicar a imagem Docker no GitHub Container Registry;
+  \item Implantar em produção (Vercel/self-host) automaticamente;
+  \item Entregar o projeto do capítulo: o pipeline completo do SkillHub.
+\end{objetivos}
+
+\section{O fluxo de trabalho moderno}
+
+No fluxo baseado em \emph{trunk} (a branch \texttt{main} é sempre
+implantável), cada mudança chega por um Pull Request. E cada \texttt{push} ou
+\texttt{pull request} dispara um pipeline com os checks de qualidade:
+
+\begin{enumerate}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Lint} (\texttt{eslint}) + \textbf{formatação} (\texttt{prettier} --check);
+  \item \textbf{Typecheck} (\texttt{tsc --noEmit});
+  \item \textbf{Testes} unitários e de integração;
+  \item \textbf{Build} de produção (pega erros que só aparecem no build);
+  \item \textbf{Testes E2E} (Playwright);
+  \item \textbf{Publicação} da imagem e \textbf{deploy} (se aprovado).
+\end{enumerate}
+
+\begin{caixaconceito}
+``CI verde'' é a porta de entrada do Pull Request: nada merge sem passar nos
+checks. Isso transforma a qualidade de ``responsabilidade individual'' em
+\emph{garantia do processo} — e é exatamente o que as empresas esperam de um
+sênior.
+\end{caixaconceito}
+
+\begin{caixadica}
+Os primeiros cinco checks são \textbf{CI}: respondem ``este código é bom?''
+O sexto é \textbf{CD}: responde ``este código chega ao usuário?''. Confundir
+os dois é comum — e caro: um pipeline que só testa, mas não entrega, é
+integração contínua sem entrega; um pipeline que entrega sem testar é um
+acidente esperando acontecer.
+\end{caixadica}
+
+\section{Entendendo a sintaxe de um workflow}
+
+Um workflow\index{workflow} do GitHub Actions é um arquivo YAML em
+\texttt{.github/workflows/} com três blocos essenciais:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \texttt{on} — \emph{quando} o workflow roda (push, pull\_request, schedule, workflow\_dispatch);
+  \item \texttt{jobs} — \emph{o que} roda, em paralelo por padrão; jobs dependentes usam \texttt{needs};
+  \item \texttt{steps} — a sequência de comandos e \emph{actions} (blocos reutilizáveis da comunidade, como \texttt{actions/checkout}).
+\end{itemize}
+
+Cada job roda em um runner (\texttt{runs-on: ubuntu-latest} é o padrão), que é
+uma máquina virtual limpa provisionada para a execução. É por isso que o CI
+pega erros que ``funcionavam na sua máquina'': não há nada instalado além do
+que o workflow declara.
+
+\section{Primeiro workflow}
+
+\begin{lstlisting}[style=livro, language=Bash,
+  caption={.github/workflows/ci.yml — checagens a cada push/PR.},
+  label={list:cicd-ci}]
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run check          # tsc --noEmit
+      - run: npm test -- --run      # vitest
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: senha
+          POSTGRES_DB: app_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U app"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma migrate deploy
+      - run: npx playwright install --with-deps
+      - run: npm run test:e2e
+\end{lstlisting}
+
+\begin{caixadica}
+Note o bloco \texttt{services}: o GitHub Actions sobe um PostgreSQL como
+\emph{serviço} do job — exatamente como você fez com o Compose no
+capítulo~\ref{cap:docker}. O E2E roda contra um banco real, migrado e
+saudável, em toda execução. Sem isso, seus testes E2E estariam testando
+mocks — e mentindo.
+\end{caixadica}
+
+\section{Cache, segredos e ambientes}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Cache}: \texttt{cache: npm} acelera \texttt{npm ci}; Playwright mantém cache próprio dos browsers;
+  \item \textbf{Segredos}: \texttt{secrets.DATABASE\_URL} — nunca literais no workflow;
+  \item \textbf{Ambientes} (\emph{environments}): \texttt{staging} e \texttt{production} com aprovação manual opcional no deploy\index{deploy};
+  \item \textbf{Concorrência}: \texttt{concurrency} evita deploys simultâneos do mesmo branch.
+\end{itemize}
+
+\begin{caixaconceito}
+\textbf{Segredos} são injetados no runner apenas no momento da execução, e
+nunca aparecem no arquivo versionado. O GitHub ainda mascara o valor nos logs.
+Se você precisar de um valor sensível no workflow, cadastre-o em
+\textbf{Settings $\rightarrow$ Secrets and variables $\rightarrow$ Actions} e
+referencie com \texttt{\$ \{\{ secrets\index{secrets}.NOME \}\}} — nunca cole o valor no YAML.
+\end{caixaconceito}
+
+\section{Publicação de imagem e deploy}
+
+Depois que qualidade e E2E passam na \texttt{main}, o próximo job publica a
+imagem Docker no GitHub Container Registry (GHCR\index{GHCR}) com uma tag imutável — o
+SHA do commit:
+
+\begin{lstlisting}[style=livro, language=Bash,
+  caption={Job de publicação da imagem no GHCR.}, label={list:cicd-publish}]
+  publish:
+    needs: [quality, e2e]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:${{ github.sha }}
+\end{lstlisting}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \texttt{needs} — este job só roda se os dois anteriores passaram;
+  \item \texttt{if} — só na \texttt{main} (não em PRs);
+  \item \texttt{permissions} — o mínimo que o job precisa (princípio do menor privilégio);
+  \item \texttt{tag por SHA} — cada imagem é única e rastreável até o commit; rollback = apontar para uma tag antiga.
+\end{itemize}
+
+\begin{caixadica}
+Deploy no Next.js: na Vercel, conectar o repositório já cria o pipeline
+(preview por PR + produção em \texttt{main}) — e o GitHub Actions complementa
+com qualidade. Para self-host: a imagem Docker acima + um passo de SSH/Helm.
+\end{caixadica}
+
+% ============================================================================
+\section{Projeto do capítulo: pipeline completo do SkillHub}
+\label{sec:projeto18}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} criar o pipeline de qualidade e entrega do SkillHub.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Workflow \texttt{ci.yml} com lint, typecheck, testes e build — verde em todo PR;
+  \item Job E2E com PostgreSQL como serviço;
+  \item Workflow de publicação da imagem no GHCR com tag por SHA;
+  \item Deploy automático em staging + produção (Vercel ou self-host) protegido por ambiente;
+  \item Badges de status no README do projeto;
+  \item Histórico de execuções documentando uma correção de pipeline (bug real corrigido).
+\end{itemize}
+\end{caixaprojeto}
+
+\subsection{Passo a passo}
+
+\begin{passos}
+  \item \textbf{Base}: crie \texttt{.github/workflows/ci.yml} com os checks
+  mínimos (lint, typecheck, testes) rodando em todo PR;
+  \item \textbf{Build}: adicione um passo que roda o build de produção —
+  muitos erros só aparecem no bundle final;
+  \item \textbf{E2E}: adicione o job com o serviço PostgreSQL e o Playwright;
+  \item \textbf{Branch protection}: no GitHub, torne os checks
+  \emph{obrigatórios} para merge na \texttt{main} — o CI só tem poder se
+  ninguém conseguir contorná-lo;
+  \item \textbf{Publicação}: adicione o job \texttt{publish} (GHCR, tag por SHA);
+  \item \textbf{Deploy}: conecte o repositório à Vercel (ou configure o deploy
+  self-host) e proteja produção com um \emph{environment};
+  \item \textbf{Badges e documentação}: adicione os badges de status ao
+  \texttt{README} e registre no histórico a primeira correção real de
+  pipeline que você precisou fazer.
+\end{passos}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Qual a diferença entre CI e CD?
+  \item Liste os 4 checks mínimos de um pipeline de qualidade.
+  \item O que faz \texttt{on: pull\_request} no workflow?
+  \item Por que segredos nunca devem aparecer literais no workflow?
+  \item Escreva um workflow mínimo: checkout, setup-node, npm ci, npm test.
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Deploy condicional}: publique a imagem só quando a branch for \texttt{main} e o commit tiver tag semver.
+  \item \textbf{Matrix}: rode os testes em Node 22 e 24 (matrix) e explique o valor de testar múltiplas versões.
+  \item \textbf{Notificação}: adicione um passo que posta o resultado do pipeline no Discord/Slack via webhook.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Artefatos e diffs}: gere o bundle de produção como artefato e publique o diff de tamanho a cada PR (guarda contra regressão de performance).
+  \item \textbf{Deploy com rollback}: configure deploy atômico com rollback automático em caso de health check falho.
+  \item \textbf{Tempo do pipeline}: reduza o tempo total do pipeline em 50\% (cache, paralelismo, jobs separados) e documente o antes/depois.
+  \item \textbf{Supply chain}: use \texttt{dependabot} + \texttt{sbom} (CycloneDX) para atender ao \texttt{A03} do OWASP (falhas na cadeia de suprimentos).
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Testes que só rodam em CI e falham na máquina local (e vice-versa);
+  \item Segredos vazados em logs de pipeline;
+  \item Deploy direto na \texttt{main} sem ambiente de staging;
+  \item Pipeline de 30 min com cache mal configurado;
+  \item \texttt{latest} sem tag imutável — impossível voltar atrás;
+  \item Check obrigatório configurado depois do deploy (a proteção vem primeiro);
+  \item Workflows gigantes em um único job em vez de jobs paralelos independentes.
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item CI roda qualidade a cada push; CD publica e implanta;
+  \item GitHub Actions: \texttt{on}/\texttt{jobs}/\texttt{steps} com serviços (banco) e cache;
+  \item Segredos via \texttt{secrets}; ambientes protegem produção;
+  \item Imagens publicadas com tag imutável por SHA;
+  \item Projeto entregue: pipeline completo e documentado.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item GitHub Actions Documentation: \url{https://docs.github.com/actions}
+  \item Referência de workflow: \url{https://docs.github.com/actions/reference/workflow-syntax-for-github-actions}
+  \item GitHub Container Registry: \url{https://docs.github.com/packages/working-with-a-github-packages-registry/working-with-the-container-registry}
+  \item GitHub — Dependabot: \url{https://docs.github.com/code-security/dependabot}
+\end{itemize}

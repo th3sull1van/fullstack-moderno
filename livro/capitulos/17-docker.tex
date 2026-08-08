@@ -1,0 +1,326 @@
+% ============================================================================
+% CAPÍTULO 17 — Docker\index{Docker} e contêineres
+% Status: texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{Docker e Contêineres}
+\label{cap:docker}
+
+\begin{caixaconceito}
+\textbf{Docker} empacota sua aplicação com tudo o que ela precisa (runtime,
+dependências, config) em um \emph{contêiner} — que roda igual em qualquer
+máquina. É o padrão da indústria \cite{docker-docs} e o pré-requisito para
+CI/CD e cloud (capítulos~\ref{cap:cicd} e~\ref{cap:cloud}).
+\end{caixaconceito}
+
+Nos capítulos anteriores, você montou um projeto que depende de PostgreSQL,
+Redis e de um runtime específico de Node.js. Agora pense no que acontece quando
+esse projeto precisa rodar na máquina de um colega, no servidor de CI e em
+produção: três ambientes, três versões de dependências, três formas de
+quebrar. Este capítulo apresenta a ferramenta que elimina esse problema pela
+raiz.
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Explicar contêineres vs máquinas virtuais e o papel das imagens;
+  \item Escrever \texttt{Dockerfile} otimizados (multi-stage\index{multi-stage}, camadas, usuário não-root\index{não-root});
+  \item Orquestrar serviços com \texttt{docker-compose} (app + banco + redis);
+  \item Usar volumes\index{volumes}, redes, health checks e variáveis de ambiente;
+  \item Publicar imagens em um registry;
+  \item Entregar o projeto do capítulo: o ambiente de desenvolvimento completo.
+\end{objetivos}
+
+\section{O problema que os contêineres resolvem}
+
+``Funciona na minha máquina'' é o maior custo invisível do desenvolvimento.
+Contêineres empacotam \emph{aplicativo + ambiente}: a mesma imagem\index{imagem} roda no seu
+notebook, no CI e na nuvem. Ao contrário de uma VM (sistema operacional
+completo), um contêiner\index{contêiner} compartilha o kernel do host — por isso é leve e
+inicia em segundos.
+
+\begin{caixaconceito}
+\textbf{Imagem} = modelo imutável (receita). \textbf{Contêiner} = instância em
+execução (prato servido). \textbf{Volume} = armazenamento persistente que
+sobrevive ao contêiner. \textbf{Rede} = como os contêineres conversam entre si.
+\end{caixaconceito}
+
+\subsection{Como um contêiner isola de verdade}
+
+Um contêiner não é uma máquina virtual com um sistema operacional próprio. Ele
+é um \emph{processo comum do host} que roda dentro de um ambiente isolado
+construído com dois mecanismos do kernel Linux:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Namespaces} — cada contêiner enxerga sua própria visão do
+  sistema: PID, rede, sistema de arquivos, usuários. O processo dentro do
+  contêiner ``acha'' que é o processo 1 daquela máquina;
+  \item \textbf{Cgroups} — o kernel limita quanto de CPU, memória e I/O cada
+  contêiner pode usar, impedindo que um serviço consuma o host inteiro.
+\end{itemize}
+
+Isso explica as propriedades práticas que você já deve ter ouvido: contêineres
+iniciam em segundos (não há boot de SO), são leves (compartilham o kernel) e
+são ``descartáveis'' (criar e destruir é barato). No Windows/macOS, o Docker
+roda uma VM mínima com kernel Linux para fornecer esses mesmos mecanismos —
+você não precisa se preocupar com isso, mas é útil entender por que ``funciona
+igual em qualquer máquina''.
+
+\subsection{Imagens e camadas}
+
+Uma imagem é construída por \emph{camadas} (\emph{layers}): cada instrução do
+\texttt{Dockerfile} cria uma camada imutável sobre a anterior. Duas
+consequências práticas:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Cache}: se uma camada não mudou, o Docker a reaproveita do
+  cache de build. Por isso a ordem importa: copie \texttt{package.json} antes
+  do código — as dependências só são reinstaladas quando elas mudam;
+  \item \textbf{Compartilhamento}: camadas iguais entre imagens são baixadas
+  uma única vez. O Docker Hub armazena e distribui por camada.
+\end{itemize}
+
+\section{Escrevendo um Dockerfile de qualidade}
+
+\begin{lstlisting}[style=livro, language=Bash,
+  caption={Dockerfile multi-stage para uma app Next.js.}, label={list:docker-dockerfile}]
+# ---------- Estágio 1: build ----------
+FROM node:24-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# ---------- Estágio 2: produção (mínimo) ----------
+FROM node:24-alpine AS run
+WORKDIR /app
+ENV NODE_ENV=production
+RUN addgroup -S app && adduser -S app -G app   # usuário não-root
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/public ./public
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/node_modules ./node_modules
+USER app
+EXPOSE 3000
+CMD ["npm", "start"]
+\end{lstlisting}
+
+\begin{caixadica}
+Boas práticas: (1) \textbf{multi-stage} — a imagem final só tem o que roda;
+(2) \textbf{ordem das camadas} — \texttt{package.json} antes do código para
+reaproveitar o cache de \texttt{npm ci}; (3) \textbf{usuário não-root} —
+princípio do menor privilégio; (4) imagens \emph{pinadas} (evite \texttt{latest}).
+\end{caixadica}
+
+\begin{caixaconceito}
+\textbf{Multi-stage} é o recurso que resolve o dilema ``preciso das
+ferramentas de build, mas não quero elas na imagem final''. O primeiro estágio
+compila (TypeScript, Next.js, Prisma client); o segundo copia apenas os
+artefatos prontos. O resultado: uma imagem pequena, com menos superfície de
+ataque e menos para atualizar.
+\end{caixaconceito}
+
+\begin{caixadica}
+O Next.js e o Prisma precisam de atenção extra no Docker: gere o Prisma Client
+no estágio de build e copie a pasta \texttt{node\_modules/.prisma}; para o
+Next.js \emph{standalone}, use \texttt{output: "standalone"} no
+\texttt{next.config.ts} e copie a pasta \texttt{.next/standalone} — a imagem
+cai para uma fração do tamanho.
+\end{caixadica}
+
+\section{Docker Compose: o ambiente de desenvolvimento}
+
+O Dockerfile\index{Dockerfile} descreve \emph{uma} imagem. Um produto full stack tem vários
+serviços — banco, cache, fila, a própria aplicação. O Compose declara todos
+eles em um arquivo YAML e os orquestra com um único comando:
+
+\begin{lstlisting}[style=livro, language=Bash,
+  caption={docker-compose.yml com app, banco e redis.}, label={list:docker-compose}]
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://app:senha@db:5432/app
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: senha
+      POSTGRES_DB: app
+    volumes:
+      - dados_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  dados_postgres:
+\end{lstlisting}
+
+\begin{lstlisting}[style=livro, language=Bash,
+  caption={Comandos essenciais do Compose.}, label={list:docker-comandos}]
+docker compose up -d          # sobe tudo em segundo plano
+docker compose up --build     # reconstrói a imagem do app
+docker compose logs -f app    # acompanha os logs
+docker compose down           # derruba (mantém volumes)
+docker compose down -v        # derruba e apaga volumes (cuidado!)
+\end{lstlisting}
+
+\begin{caixadica}
+Note as variáveis de ambiente: \texttt{DATABASE\_URL} aponta para
+\texttt{db}, não \texttt{localhost}. Dentro da rede do Compose, os serviços
+se encontram pelo \emph{nome do serviço} — o Docker resolve
+\texttt{db:5432} para o contêiner do PostgreSQL. Essa é uma das diferenças
+mais comuns entre ``funciona no meu computador'' e ``funciona no Docker''.
+\end{caixadica}
+
+\section{Health checks, redes e depuração}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Health check}: o Compose só inicia dependências saudáveis (\texttt{depends\_on: condition: service\_healthy}) — elimina o ``banco ainda não subiu'';
+  \item \textbf{Redes}: serviços conversam pelo nome do serviço (\texttt{db}, \texttt{redis});
+  \item \textbf{Depuração}: \texttt{docker exec -it app sh}, \texttt{docker ps}, \texttt{docker logs};
+  \item \textbf{Produção}: imagens pequenas, sem secrets na imagem, registry privado + scan de vulnerabilidades.
+\end{itemize}
+
+\begin{caixadica}
+\texttt{depends\_on} sem health check apenas ordena a criação — o PostgreSQL
+pode ``existir'' mas ainda não aceitar conexões. Com
+\texttt{condition: service\_healthy}, o Compose espera o banco responder
+\texttt{pg\_isready} antes de subir o app. É a diferença entre ``às vezes
+funciona'' e ``sempre funciona''.
+\end{caixadica}
+
+\section{Publicando imagens em um registry}
+
+Para rodar a imagem em outro lugar — CI, servidor, nuvem — ela precisa ir para
+um \emph{registry}. O fluxo:
+
+\begin{enumerate}[leftmargin=*, itemsep=0.4em]
+  \item \texttt{docker build -t seu-usuario/skillhub:1.0.0 .} — constrói e etiqueta;
+  \item \texttt{docker push seu-usuario/skillhub:1.0.0} — publica no registry;
+  \item \texttt{docker pull seu-usuario/skillhub:1.0.0} — baixa em qualquer máquina;
+  \item \texttt{docker run -p 3000:3000 seu-usuario/skillhub:1.0.0} — executa.
+\end{enumerate}
+
+\begin{caixaarmadilha}
+A imagem é pública para quem tem acesso ao registry. Nunca grave
+\texttt{.env}, tokens ou senhas na imagem — injete por variável de ambiente ou
+sistema de segredos no momento da execução. Um dump de uma imagem antiga não
+pode vazar nada além do código.
+\end{caixaarmadilha}
+
+% ============================================================================
+\section{Projeto do capítulo: ambiente de desenvolvimento completo}
+\label{sec:projeto17}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} dockerizar o SkillHub (capítulo~\ref{cap:fullstack}): app
+Next.js + PostgreSQL + Redis em um único \texttt{docker compose up}.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Dockerfile multi-stage com usuário não-root e build reproduzível;
+  \item \texttt{docker-compose.yml} com health checks e volumes persistentes;
+  \item Migrações e seed rodando automaticamente na primeira subida;
+  \item Imagem de produção $<$ 300 MB e sem secrets;
+  \item \texttt{docker compose up -d} sobe o app 100\% funcional em uma máquina limpa;
+  \item \texttt{.dockerignore} correto (sem \texttt{node\_modules}, \texttt{.next}, \texttt{.env}).
+\end{itemize}
+\end{caixaprojeto}
+
+\subsection{Passo a passo}
+
+\begin{passos}
+  \item \textbf{Dockerfile}: escreva o multi-stage (build + produção) com
+  usuário não-root e \texttt{output: "standalone"};
+  \item \textbf{.dockerignore}: exclua \texttt{node\_modules}, \texttt{.next},
+  \texttt{.env*}, \texttt{.git} e pastas de teste;
+  \item \textbf{Compose}: declare \texttt{app}, \texttt{db} (postgres:18) e
+  \texttt{redis}, com health checks e volume nomeado para o banco;
+  \item \textbf{Migrações}: crie um serviço \texttt{migrate} (ou um entrypoint)
+  que roda \texttt{prisma migrate deploy} antes de iniciar o app;
+  \item \textbf{Seed}: execute \texttt{prisma db seed} na primeira subida
+  (guardado por um marcador no banco ou script idempotente);
+  \item \textbf{Validação}: rode \texttt{docker compose down -v} e depois
+  \texttt{up -d --build} numa pasta limpa; o app deve subir completo;
+  \item \textbf{Documentação}: escreva no \texttt{README} como subir o
+  ambiente inteiro com um comando.
+\end{passos}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Qual a diferença entre imagem, contêiner e volume?
+  \item Explique o que é multi-stage e qual o ganho prático.
+  \item Escreva um \texttt{docker-compose.yml} para um app Node + PostgreSQL.
+  \item O que faz um health check e por que \texttt{depends\_on} sozinho não basta?
+  \item Liste 3 comandos Docker para inspecionar o que está rodando.
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Redução de imagem}: analise o tamanho das camadas com \texttt{docker history} e reduza a imagem final em pelo menos 30\%.
+  \item \textbf{Dev vs prod}: crie perfis (\texttt{--profile}) que sobem serviços extras (adminer, mailhog) só em desenvolvimento.
+  \item \textbf{Scan de segurança}: rode \texttt{docker scout} (ou trivy) na imagem e corrija as vulnerabilidades críticas.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Orquestração}: compare Docker Compose com Kubernetes para produção e descreva quando cada um é apropriado.
+  \item \textbf{Segredos}: configure a injeção de segredos (Docker secrets ou variáveis do CI) e explique por que a imagem nunca deve contê-los.
+  \item \textbf{Cache de build}: otimize o cache do Docker (BuildKit) para que um rebuild de código leve $<$ 30s.
+  \item \textbf{Observabilidade}: configure o \texttt{logging} do Compose para enviar logs ao Loki/ELK (base do capítulo~\ref{cap:observabilidade}).
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Imagens gigantes com ferramentas de build desnecessárias;
+  \item Rodar como root dentro do contêiner;
+  \item \texttt{latest} sem pinar versões (build não reproduzível);
+  \item Esquecer volumes — dados somem a cada \texttt{down};
+  \item Secrets gravados na imagem (vazam para qualquer um com acesso ao registry);
+  \item \texttt{localhost} dentro do contêiner apontando para o host em vez de outro serviço;
+  \item Não usar \texttt{.dockerignore} — o build copia \texttt{node\_modules}
+  e \texttt{.git} para o contexto, deixando o build lento e a imagem inchada.
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Contêineres = aplicação + ambiente, leves e portáveis;
+  \item Dockerfile multi-stage com usuário não-root é o padrão;
+  \item Compose orquestra app + banco + cache com health checks;
+  \item Volumes persistem; redes conectam; imagens pinadas reproduzem;
+  \item Projeto entregue: SkillHub 100\% dockerizado.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Documentação oficial do Docker: \url{https://docs.docker.com}
+  \item Guia de boas práticas de Dockerfile: \url{https://docs.docker.com/develop/develop-images/dockerfile_best-practices/}
+  \item Docker Compose: \url{https://docs.docker.com/compose/}
+  \item Trivy (scan de vulnerabilidades): \url{https://trivy.dev}
+\end{itemize}

@@ -1,0 +1,86 @@
+% ============================================================================
+% APÊNDICE E — Manutenção, versões e mudanças futuras
+% ============================================================================
+\chapter{Manutenção do Livro: Versões e Atualizações}
+\label{apendice:manutencao}
+
+Este livro é um material vivo. Este apêndice registra as versões das
+tecnologias, as datas de consulta das documentações e a política de
+atualização — o espelho do arquivo \texttt{MANUTENCAO.md} na raiz do projeto.
+
+\section{Versões registradas (consulta de 2026-08-08)}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Tecnologias, versões e documentação consultada em 08/08/2026.}
+\label{tab:versoes}
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Tecnologia} & \textbf{Versão} & \textbf{Fonte consultada} \\
+\midrule
+Next.js & 16.3 (usado 16.3.0) & \url{https://nextjs.org/docs} \\
+React & 19.2 (usado 19.2.8) & \url{https://react.dev} \\
+TypeScript & 6.0 (usado 5.9) & \url{https://www.typescriptlang.org/docs/} \\
+Node.js & 24 LTS (ambiente: v26.5) & \url{https://nodejs.org/docs/latest/api/} \\
+PostgreSQL & 18.4 & \url{https://www.postgresql.org/docs/current/} \\
+Tailwind CSS & 4.x (usado 4.3.3) & \url{https://tailwindcss.com/docs} \\
+Prisma & 6.x (usado 6.19.3) & \url{https://www.prisma.io/docs} \\
+Drizzle ORM & 1.x & \url{https://orm.drizzle.team} \\
+Vitest & 4.x (usado 4.1.10) & \url{https://vitest.dev} \\
+Vite & 8.x (usado 8.2.1) & \url{https://vite.dev} \\
+Fastify & 5.x (usado 5.11.3) & \url{https://fastify.dev} \\
+Zod & 4.x (usado 4.4.3) & \url{https://zod.dev} \\
+Playwright & 1.x (usado 1.62.1) & \url{https://playwright.dev} \\
+OWASP Top 10 & 2025 & \url{https://owasp.org/Top10/2025/en/} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Política de atualização}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Revisão trimestral}: reconsultar as documentações oficiais e
+  atualizar versões, datas e trechos afetados;
+  \item \textbf{Regra de quebra}: quando uma versão \emph{quebra} um exemplo
+  (API removida, sintaxe nova), o exemplo é atualizado e a mudança registrada
+  neste apêndice com data;
+  \item \textbf{Regra de manutenção}: cada seção cita a versão usada; o
+  repositório \texttt{codigo/} é a fonte de verdade dos exemplos (o livro
+  apenas os referencia via \texttt{\textbackslash lstinputlisting});
+  \item \textbf{Feedback}: correções e sugestões entram pelo repositório
+  (issues/PRs) — veja o apêndice~\ref{apendice:revisao}.
+\end{itemize}
+
+\section{Histórico de versões do livro}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Histórico editorial.}
+\label{tab:historico}
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Versão} & \textbf{Data} & \textbf{Mudanças} \\
+\midrule
+0.1 & ago/2026 & Estrutura completa, Partes I--VI, capítulos 1--4 em texto
+completo, infraestrutura LaTeX, repositório de código e sistema de revisão. \\
+0.2 & ago/2026 & Rodada editorial 2: capítulos 5--25 expandidos para texto
+completo; códigos 06--19 implementados e testados; revisão por pares completa
+(rodada 3) com validação das fontes; índice remissivo adicionado. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Mudanças futuras previstas}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Projetos de código dos capítulos 5, 20--25 no repositório \texttt{codigo/}
+  (seguindo o mapa do \texttt{README});
+  \item Preencher \texttt{codigo/--solucoes/} com as soluções executáveis dos
+  exercícios (prometidas no apêndice~\ref{apendice:solucoes});
+  \item Nova rodada de verificação de versões (próximo trimestre — nov/2026);
+  \item Conversão gradual das listagens dos capítulos 5--25 para
+  \texttt{\textbackslash lstinputlisting} (fonte única de verdade no \texttt{codigo/});
+  \item Publicação do livro e do código sob licenças abertas (CC BY 4.0 / MIT).
+\end{itemize}

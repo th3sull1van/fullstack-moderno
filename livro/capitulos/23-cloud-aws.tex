@@ -1,0 +1,283 @@
+% ============================================================================
+% CAPÍTULO 23 — Cloud\index{cloud} e deploy na AWS\index{AWS}
+% Status: texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{Cloud e Deploy na AWS}
+\label{cap:cloud}
+
+\begin{caixaconceito}
+A \textbf{AWS} é o provedor de nuvem mais usado do mundo \cite{aws-docs}. Este
+capítulo ensina o essencial para colocar o SkillHub em produção com
+segurança: computação, banco gerenciado, storage, rede, domínio e custos —
+sem virar um curso de cloud, mas com base sólida de mercado.
+\end{caixaconceito}
+
+Chegou o momento de tirar o SkillHub do seu computador e colocá-lo na
+internet de verdade: com domínio próprio, HTTPS, banco gerenciado, backup e
+escala. A AWS é o ecossistema mais pedido em vagas de full stack, e também o
+mais denso em jargões. Este capítulo organiza esse universo em um mapa
+mental: quais serviços importam para o seu tipo de aplicação, em que ordem
+eles se conectam, e — igualmente importante — o que \emph{não} fazer.
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Explicar os conceitos de IaaS/PaaS/SaaS e os serviços essenciais da AWS;
+  \item Implantar uma aplicação contêinerizada (ECS) com banco gerenciado (RDS\index{RDS});
+  \item Configurar S3\index{S3} para arquivos, CloudFront como CDN e Route 53 para domínio;
+  \item Gerenciar segredos (Secrets Manager) e permissões (IAM);
+  \item Entender custos e otimizá-los com sanidade;
+  \item Entregar o projeto do capítulo: o SkillHub em produção na AWS.
+\end{objetivos}
+
+\section{Modelos de nuvem e a galáxia AWS}
+
+Antes de serviços, os modelos — o grau de responsabilidade que você assume:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{IaaS} (EC2\index{EC2}): você gerencia o servidor — máximo controle, máximo trabalho;
+  \item \textbf{PaaS} (Elastic Beanstalk, Vercel): você gerencia a aplicação, a plataforma cuida do resto;
+  \item \textbf{SaaS}: você consome o produto pronto (S3, RDS, Cognito são ``serviços'').
+\end{itemize}
+
+A regra de ouro vale aqui também: \textbf{quanto menos você gerencia, melhor}
+— desde que o serviço cubra o que você precisa. Por isso o caminho moderno
+prefere serviços gerenciados (RDS em vez de PostgreSQL manual no EC2, Fargate
+em vez de gerenciar servidores) e reserva o IaaS para quando há um motivo
+concreto.
+
+\begin{caixaconceito}
+Mapa mental AWS para full stack: \textbf{EC2} (máquina virtual), \textbf{ECS}
+(contêineres gerenciados), \textbf{RDS} (PostgreSQL gerenciado), \textbf{S3}
+(storage de objetos), \textbf{CloudFront} (CDN), \textbf{Route 53} (DNS),
+\textbf{Secrets Manager} (segredos), \textbf{Cognito} (auth), \textbf{IAM}
+(permissões), \textbf{CloudWatch} (logs/métricas) e \textbf{VPC} (rede).
+\end{caixaconceito}
+
+\begin{caixadica}
+Não tente decorar os 200+ serviços da AWS. Para full stack web, a lista acima
+é o núcleo: computação, banco, arquivos, CDN, DNS, segredos, permissões,
+logs e rede. Se você domina esses onze, domina o suficiente para colocar
+qualquer aplicação em produção — e o resto é aprendido sob demanda.
+\end{caixadica}
+
+\section{Deploy contêinerizado: ECS + Fargate}
+
+O padrão moderno: a imagem Docker (capítulo~\ref{cap:docker}) roda no
+\textbf{ECS Fargate} — sem gerenciar servidores:
+
+\begin{enumerate}[leftmargin=*, itemsep=0.4em]
+  \item Imagem publicada no ECR (registry privado da AWS);
+  \item Task definition (CPU/RAM, imagem, variáveis, health check);
+  \item Service com load balancer (ALB) e auto scaling;
+  \item RDS PostgreSQL (multi-AZ para produção) atrás da VPC\index{VPC};
+  \item Secrets via Secrets Manager, nunca em variáveis de ambiente versionadas.
+\end{enumerate}
+
+A Figura~\ref{fig:aws-pipeline} mostra o caminho completo em produção: o
+navegador chega pelo Route 53, passa pelo CloudFront (cache global), é
+roteado pelo ALB para o ECS Fargate, que fala com o RDS — enquanto o S3
+guarda mídias e estáticos, servidos também pelo CloudFront.
+
+\begin{figure}[htbp]
+  \centering
+  \diagramatikz{%
+  \begin{tikzpicture}[
+      box/.style={draw=primaria, fill=azulclaro, rounded corners=2pt,
+        align=center, inner sep=4pt, font=\footnotesize},
+      seta/.style={-{Stealth[length=2.2mm]}, thick, color=secundaria},
+      font=\footnotesize
+    ]
+    \node[box] (r53) at (0,0) {Route 53};
+    \node[box] (cf) at (2.9,0) {CloudFront};
+    \node[box] (alb) at (6.0,0) {ALB};
+    \node[box] (ecs) at (9.2,0) {ECS Fargate\\(app)};
+    \node[box] (rds) at (12.7,0) {RDS\\(PostgreSQL)};
+    \node[box] (s3) at (9.2,-2.6) {S3\\(mídia e estáticos)};
+    \draw[seta] (r53) -- (cf);
+    \draw[seta] (cf) -- (alb);
+    \draw[seta] (alb) -- (ecs);
+    \draw[seta] (ecs) -- (rds);
+    \draw[seta] (ecs) -- (s3);
+    \draw[seta, dashed] (cf.south) to[out=-70,in=-110]
+      node[below] {estáticos} (s3.west);
+  \end{tikzpicture}}
+  \caption{O caminho de produção do SkillHub na AWS: Route 53 → CloudFront →
+  ALB → ECS Fargate → RDS, com S3 para mídias e estáticos.}
+  \label{fig:aws-pipeline}
+\end{figure}
+
+\begin{caixaconceito}
+A arquitetura de referência: o \textbf{ALB} (Application Load Balancer)
+recebe o tráfego e distribui entre as tarefas do \textbf{ECS}; o auto scaling
+sobe e desce tarefas conforme a carga; o \textbf{RDS} vive em uma sub-rede
+privada, acessível apenas pelas tarefas; e tudo isso dentro de uma
+\textbf{VPC} — a ``rede privada virtual'' da sua aplicação. Cada caixa tem um
+papel, e o conjunto é o mesmo desenho que você faria na mão, só que
+gerenciado.
+\end{caixaconceito}
+
+\begin{caixadica}
+Alternativa de mercado para Next.js: a \textbf{Vercel} gerencia o deploy com
+zero configuração (você já fez isso no capítulo~\ref{cap:nextjs}). A AWS é o
+caminho quando você precisa de controle, compliance ou já vive no ecossistema
+— e é a mais pedida em vagas.
+\end{caixadica}
+
+\section{S3 + CloudFront + Route 53}
+
+Arquivos são o terceiro pilar de qualquer produto com conteúdo:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{S3}: arquivos (imagens, relatórios PDF) — buckets privados por padrão, acesso via URLs assinadas;
+  \item \textbf{CloudFront}: CDN global que cacheia estático e acelera o mundo todo;
+  \item \textbf{Route 53}: domínio (\texttt{skillhub.com.br}) apontando para o CloudFront/ALB, com certificado TLS (ACM);
+  \item \textbf{Otimal}: o fluxo ``upload no S3 + entrega via CDN'' é o padrão para qualquer produto com arquivos.
+\end{itemize}
+
+\begin{caixaconceito}
+\textbf{URLs assinadas} resolvem o dilema ``arquivo privado vs. entrega
+rápida'': o bucket continua privado, mas o servidor gera URLs com validade
+curta (ex.: 15 minutos) que o navegador usa para baixar direto do S3. O
+servidor autoriza; o CDN entrega; o arquivo nunca fica público de graça.
+\end{caixaconceito}
+
+\section{IAM e Secrets Manager: permissão mínima}
+
+Segurança na AWS é 90\% identidade e permissão:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{IAM}: usuários, roles e policies — \emph{princípio do menor privilégio}: a aplicação só acessa o que precisa;
+  \item \textbf{Secrets Manager}: rotação de senhas do banco e API keys, com auditoria;
+  \item \textbf{Nunca}: chaves AWS no código ou em repositórios — uma chave vazada já custou milhões a empresas;
+  \item \textbf{Segurança em camadas}: VPC privada para o banco (sem IP público), security groups restritos.
+\end{itemize}
+
+\begin{caixaconceito}
+\textbf{Chaves AWS} (access key + secret key) são como a senha da sua conta
+bancária em formato de duas strings. No dia em que vazam — um \texttt{git
+push} acidental, um \texttt{.env} no bundle — qualquer um pode gastar o seu
+dinheiro ou apagar seus recursos em minutos. A prática segura: credenciais
+temporárias via roles (IAM), rotação periódica e revogação imediata ao menor
+sinal de vazamento.
+\end{caixaconceito}
+
+\section{Custos: o que importa de verdade}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Compute} (ECS/EC2) e \textbf{banco} (RDS) dominam a conta;
+  \item RDS: escolha instância certa; \emph{Serverless v2} escala com demanda;
+  \item S3/CloudFront: baratos; cuidado com egress (saída de dados);
+  \item \textbf{Budget alerts}: alarme no Cost Explorer a partir de um valor;
+  \item Tagueie recursos (\texttt{ambiente: prod/dev}) para entender a conta.
+\end{itemize}
+
+\begin{caixaarmadilha}
+O custo de uma conta AWS ``esquecida'' (instância ligada, bucket público, RDS
+sem uso) é a principal dor de iniciantes. Desligue/derrube o que não usa,
+coloque orçamentos e \emph{revogue} chaves não utilizadas.
+\end{caixaarmadilha}
+
+\begin{caixadica}
+Configure o \textbf{budget alert} antes de criar qualquer recurso — é um
+e-mail quando a conta cruza o limite (ex.: R\$ 50/mês). É a única ``métrica''
+que impede o susto no cartão, e custa nada para ativar.
+\end{caixadica}
+
+% ============================================================================
+\section{Projeto do capítulo: SkillHub em produção na AWS}
+\label{sec:projeto23}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} colocar o SkillHub em produção na AWS com o caminho
+moderno: ECR $\rightarrow$ ECS Fargate $\rightarrow$ RDS $\rightarrow$ S3/CloudFront.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Infraestrutura como código com \textbf{Terraform} (reprodutível e auditável);
+  \item Imagem no ECR; serviço ECS com ALB, health check e auto scaling (2+ tarefas);
+  \item RDS PostgreSQL multi-AZ com senha em Secrets Manager e sem IP público;
+  \item Upload de imagens dos anúncios no S3 com URLs assinadas;
+  \item Domínio próprio + HTTPS via Route 53/ACM/CloudFront;
+  \item Logs no CloudWatch e métricas de CPU/latência;
+  \item Budget alerta configurado; custo mensal estimado documentado;
+  \item Rollback documentado: deploy anterior restaurado em $<$ 5 min.
+\end{itemize}
+\end{caixaprojeto}
+
+\subsection{Passo a passo}
+
+\begin{passos}
+  \item \textbf{Conta e CLI}: crie a conta AWS, configure a CLI com um usuário
+  de permissões mínimas e o MFA ativado;
+  \item \textbf{Imagem}: publique a imagem do SkillHub no ECR com tag por SHA
+  (reaproveitando o pipeline do capítulo~\ref{cap:cicd});
+  \item \textbf{Rede e banco}: declare a VPC, o RDS PostgreSQL (multi-AZ,
+  senha no Secrets Manager) e o security group privado;
+  \item \textbf{Compute}: crie a task definition e o serviço ECS com ALB,
+  health check e auto scaling de 2+ tarefas;
+  \item \textbf{Arquivos}: crie o bucket S3 privado e o fluxo de URLs assinadas
+  para as imagens dos anúncios;
+  \item \textbf{Domínio}: aponte o domínio no Route 53, emita o certificado no
+  ACM e conecte o CloudFront;
+  \item \textbf{Observabilidade e custo}: habilite CloudWatch (logs e
+  métricas), configure o budget alert e documente o custo mensal estimado e o
+  procedimento de rollback.
+\end{passos}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Diferencie IaaS, PaaS e SaaS com um serviço AWS para cada.
+  \item Para que servem ECS, RDS, S3 e CloudFront? Em que ordem eles se conectam?
+  \item O que o princípio do menor privilégio significa na prática (IAM)?
+  \item Por que o banco não deve ter IP público?
+  \item Cite 3 formas de controlar custos na AWS.
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Upload assinado}: implemente o fluxo ``presigned URL'' do S3 no Node (gerar URL, fazer upload, validar tipo/tamanho).
+  \item \textbf{Auto scaling}: configure scaling baseado em CPU (40--70\%) e teste com carga (K6, capítulo~\ref{cap:testes}).
+  \item \textbf{Backup e restore}: habilite snapshots automáticos do RDS e pratique a restauração em um banco de teste.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Terraform real}: escreva o módulo completo (VPC, ECS, RDS, S3) com \emph{remote state} no S3 e documente o fluxo de alteração.
+  \item \textbf{Multi-região}: desenhe a estratégia de failover (RDS multi-AZ $\rightarrow$ read replica $\rightarrow$ multi-região) com RTO/RPO estimados.
+  \item \textbf{Análise de custo}: estime o custo mensal para 10 mil usuários ativos (compute, banco, CDN, egress) e proponha 3 otimizações com impacto mensurado.
+  \item \textbf{Segurança de conta}: configure MFA, roles com scoped permissions e auditoria (CloudTrail) — o equivalente AWS do capítulo~\ref{cap:seguranca}.
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Chaves AWS no código (vazamento = prejuízo real);
+  \item Buckets S3 públicos por engano;
+  \item Deploy ``na mão'' (SSH + copiar arquivos) — sem reprodutibilidade;
+  \item Instância gigante para um site pequeno;
+  \item Esquecer budget alerts até a conta surpreender;
+  \item Banco com IP público e senha fraca (a primeira coisa que scanners automatizados encontram).
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item AWS = compute (ECS/EC2), banco (RDS), storage (S3), CDN (CloudFront), DNS (Route 53);
+  \item Deploy moderno: imagem $\rightarrow$ ECR $\rightarrow$ ECS Fargate $\rightarrow$ ALB;
+  \item Segredos em Secrets Manager; permissões mínimas via IAM;
+  \item S3/CloudFront são o padrão para arquivos e entrega global;
+  \item Custos se controlam com orçamentos, tags e sanidade;
+  \item Projeto entregue: SkillHub em produção com Terraform\index{Terraform}.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item AWS Documentation: \url{https://docs.aws.amazon.com}
+  \item AWS — Getting Started: \url{https://aws.amazon.com/getting-started/}
+  \item Terraform (AWS provider): \url{https://developer.hashicorp.com/terraform/docs}
+  \item AWS Well-Architected: \url{https://aws.amazon.com/architecture/well-architected/}
+\end{itemize}

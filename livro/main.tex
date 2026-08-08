@@ -1,0 +1,74 @@
+% ============================================================================
+% FULL STACK MODERNO — do zero ao sênior
+% Compile com XeLaTeX + biber (use scripts/build-pdf.sh a partir de livro/).
+% Para iterar em capítulos específicos, use \includeonly{capitulos/07-react}.
+% ============================================================================
+\documentclass[12pt, a4paper, openany, oneside]{book}
+\input{preambulo}
+
+% \includeonly{capitulos/01-universo-fullstack, capitulos/02-html}
+
+\begin{document}
+
+% ----------------------------- FRONT MATTER -----------------------------
+\frontmatter
+\input{capa}
+\input{pre-textual}
+\tableofcontents
+\clearpage
+
+% ----------------------------- MAIN MATTER ------------------------------
+\mainmatter
+
+\part{Fundamentos da Web}
+\include{capitulos/01-universo-fullstack}
+\include{capitulos/02-html}
+\include{capitulos/03-css}
+\include{capitulos/04-javascript}
+
+\part{Frontend com TypeScript e React}
+\include{capitulos/05-git-github}
+\include{capitulos/06-typescript}
+\include{capitulos/07-react}
+\include{capitulos/08-nextjs}
+\include{capitulos/09-estilizacao-design-systems}
+
+\part{Backend, APIs e Dados}
+\include{capitulos/10-nodejs}
+\include{capitulos/11-http-rest-apis}
+\include{capitulos/12-postgresql-sql}
+\include{capitulos/13-orms-migracoes}
+\include{capitulos/14-autenticacao-autorizacao}
+
+\part{Full Stack Integrado}
+\include{capitulos/15-fullstack-nextjs}
+\include{capitulos/16-testes}
+\include{capitulos/17-docker}
+\include{capitulos/18-ci-cd}
+\include{capitulos/19-seguranca}
+
+\part{Nível Avançado e Produção}
+\include{capitulos/20-performance}
+\include{capitulos/21-arquitetura-escala}
+\include{capitulos/22-observabilidade}
+\include{capitulos/23-cloud-aws}
+\include{capitulos/24-ia-fullstack}
+
+\part{Carreira e Comunidade}
+\include{capitulos/25-carreira}
+
+% ----------------------------- APPENDICES -------------------------------
+\appendix
+\include{capitulos/apendice-a-instalacao}
+\include{capitulos/apendice-b-solucoes}
+\include{capitulos/apendice-c-glossario}
+\include{capitulos/apendice-d-referencias}
+\include{capitulos/apendice-e-manutencao}
+\include{capitulos/apendice-f-revisao}
+
+% ----------------------------- BACK MATTER ------------------------------
+\backmatter
+\printbibliography[heading=bibintoc, title={Bibliografia e Fontes Consultadas}]
+\printindex
+
+\end{document}

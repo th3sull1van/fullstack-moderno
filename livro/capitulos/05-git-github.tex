@@ -1,0 +1,252 @@
+% ============================================================================
+% CAPÍTULO 5 — Git\index{Git} e GitHub\index{GitHub}
+% Status: texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{Git e GitHub}
+\label{cap:git}
+
+\begin{caixaconceito}
+\textbf{Git} é o sistema de controle de versão mais usado do mundo — o
+``máquina do tempo'' do seu código. \textbf{GitHub} é a plataforma que hospeda
+repositórios Git e adiciona colaboração, revisão e automação em cima dele.
+\end{caixaconceito}
+
+Você escreveu seu primeiro site (capítulos~\ref{cap:html} a~\ref{cap:js}) e ele
+funciona. Agora vem a pergunta que todo profissional faz antes de continuar:
+\emph{e se eu quebrar algo?} E se eu quiser testar uma ideia sem estragar o
+que está pronto? E se eu precisar explicar, daqui a três meses, por que
+mudei essa linha? A resposta a essas perguntas é o Git — a ferramenta mais
+usada do desenvolvimento, e a primeira que você deve dominar antes de
+qualquer framework.
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Explicar o que o Git resolve e como funciona o modelo de \emph{snapshots};
+  \item Executar o fluxo diário: \texttt{clone}, \texttt{status}, \texttt{add}, \texttt{commit}, \texttt{push}, \texttt{pull};
+  \item Trabalhar com branches, merges e resolução de conflitos;
+  \item Escrever mensagens de commit\index{commit} profissionais e commits atômicos;
+  \item Colaborar via GitHub: Issues, Pull Requests e code review;
+  \item Entregar o projeto do capítulo: o repositório profissional do seu portfólio.
+\end{objetivos}
+
+\section{O problema que o Git resolve}
+
+Sem controle de versão, evoluir um projeto significa copiar pastas
+(\path{site-final-v2-ok-agora-sim.zip}). O Git registra o \emph{estado
+completo} do projeto a cada \texttt{commit} — quem mudou o quê, quando e por
+quê — e permite voltar no tempo, ramificar experimentos e fundir trabalho em
+paralelo sem perder nada.
+
+\begin{caixaconceito}
+Diferente de backups (que guardam cópias), o Git guarda \emph{snapshots} do
+projeto inteiro a cada commit, com metadados completos (autor, data,
+mensagem, hash). E como cada snapshot referencia o anterior, o histórico vira
+um \emph{grafo navegável}: você pode comparar, reverter, ramificar e fundir
+qualquer ponto da história.
+\end{caixaconceito}
+
+\subsection{O modelo de três áreas}
+
+O Git funciona com três áreas que você precisa distinguir desde o início:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Working directory}: os arquivos que você edita no editor;
+  \item \textbf{Staging area} (\texttt{git add}): o que você \emph{selecionou} para o próximo commit;
+  \item \textbf{Repositório} (\texttt{git commit}): os snapshots gravados no histórico.
+\end{itemize}
+
+A separação entre \emph{editar}, \emph{selecionar} e \emph{gravar} é o que
+permite commits atômicos: você pode trabalhar em três arquivos e gravar cada
+mudança separadamente, com uma mensagem clara para cada uma.
+
+\section{O fluxo diário}
+
+\begin{lstlisting}[style=livro, language=Bash,
+  caption={O ciclo de vida de um commit.}, label={list:git-fluxo}]
+git clone https://github.com/usuario/projeto.git   # 1. baixa o projeto
+cd projeto
+git status          # 2. o que mudou?
+git add index.html  # 3. seleciona o que entra no commit
+git commit -m "feat: adiciona seção de contato"    # 4. grava o snapshot
+git push            # 5. envia para o GitHub
+git pull            # 6. traz mudanças dos outros
+\end{lstlisting}
+
+\begin{caixadica}
+Use \texttt{git status} com frequência — ele é o ``GPS'' do Git: mostra onde
+você está, o que mudou e o que está pronto para commitar. O comando
+\texttt{git log --oneline} mostra o histórico de forma compacta.
+\end{caixadica}
+
+\section{Branches: experimentar sem quebrar}
+
+Uma \emph{branch} é um ponteiro para um ponto do histórico — um ``universo
+paralelo'' do seu projeto:
+
+\begin{lstlisting}[style=livro, language=Bash,
+  caption={Criando, trocando e fundindo branches.}, label={list:git-branches}]
+git branch nova-funcionalidade   # cria a branch
+git checkout nova-funcionalidade # ou: git switch nova-funcionalidade
+# ... trabalha e commita ...
+git checkout main                # volta para a principal
+git merge nova-funcionalidade    # traz as mudanças para a main
+git branch -d nova-funcionalidade # remove a branch já fundida
+\end{lstlisting}
+
+\begin{caixaconceito}
+A regra de ouro: \textbf{a branch principal fica sempre funcionando}. Todo
+experimento, correção ou feature nova nasce em uma branch\index{branch} própria e só volta
+para a principal depois de testado. É isso que permite que várias pessoas —
+ou vários ``eus'' — trabalhem sem pisar um no outro.
+\end{caixaconceito}
+
+\subsection{Conflitos: o Git pede sua decisão}
+
+Quando duas branches mudam as mesmas linhas do mesmo arquivo, o Git não sabe
+qual versão vale — e \emph{pede que você decida}. Um conflito aparece assim:
+
+\begin{lstlisting}[style=livro, language=Bash,
+  caption={Conflito de merge marcado no arquivo.}, label={list:git-conflito}]
+<<<<<<< HEAD
+const TITULO = "SkillHub";
+=======
+const TITULO = "Marketplace de serviços";
+>>>>>>> feature/novo-nome
+\end{lstlisting}
+
+Você edita o arquivo escolhendo a versão correta (ou uma combinação), remove
+os marcadores \texttt{<<<<<<<}, \texttt{=======} e \texttt{>>>>>>>}, e
+finaliza com \texttt{git add} + \texttt{git commit}. Conflitos não são
+erros — são o Git pedindo sua opinião. Quanto menores e mais frequentes os
+commits, mais raros e simples os conflitos.
+
+\section{Commits profissionais}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Atômicos}: um commit = uma mudança lógica (não ``mais um monte de coisa'');
+  \item \textbf{Conventional Commits}: \texttt{feat:}, \texttt{fix:}, \texttt{refactor:}, \texttt{docs:}, \texttt{test:} — legível por humanos e ferramentas;
+  \item \textbf{Mensagem boa}: o \emph{porquê} importa mais que o \emph{o quê} (``fix: valida e-mail antes de salvar'' \textbf{>} ``correção'').
+\end{itemize}
+
+\begin{caixadica}
+Um bom teste para a mensagem do commit: ``se eu voltar a este commit daqui a
+6 meses, eu entendo por que ele existe?''. O histórico bem escrito é a
+documentação mais honesta do projeto — e a primeira coisa que um sênior lê
+num code review.
+\end{caixadica}
+
+\section{GitHub: colaboração e revisão}
+
+O GitHub adiciona a camada social e de processo sobre o Git:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Issue}: um problema, tarefa ou ideia registrada e rastreável;
+  \item \textbf{Pull Request (PR)}: proposta de mudança de uma branch para outra, com discussão e revisão;
+  \item \textbf{Code review}: comentários por linha, aprovações e sugestões;
+  \item \textbf{README}: a porta de entrada do repositório (você vai escrever um de nível profissional no projeto deste capítulo).
+\end{itemize}
+
+\begin{caixaconceito}
+O fluxo \textbf{feature branch $\rightarrow$ PR $\rightarrow$ review
+$\rightarrow$ merge} é o coração do trabalho em equipe: nada entra na
+principal sem passar por revisão. No capítulo~\ref{cap:cicd} você vai ver
+como o CI automatiza as checagens nesse mesmo fluxo.
+\end{caixaconceito}
+
+% ============================================================================
+\section{Projeto do capítulo: o repositório profissional do portfólio}
+\label{sec:projeto5}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} transformar o site do capítulo~1 (portfólio) em um
+repositório GitHub profissional: histórico limpo, README de nível
+profissional e fluxo de PR.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Repositório criado com \texttt{README.md}, \texttt{.gitignore} e licença;
+  \item Histórico com commits atômicos usando Conventional Commits;
+  \item Pelo menos uma branch de feature com merge\index{merge} via Pull Request\index{pull request};
+  \item README explicando: o que é, como rodar, estrutura, captura de tela;
+  \item \texttt{.gitignore} correto (sem \texttt{node\_modules}, \texttt{.env}, arquivos gerados);
+  \item Deploy publicado (GitHub Pages\index{GitHub Pages} ou Vercel) com link no README.
+\end{itemize}
+\end{caixaprojeto}
+
+\subsection{Passo a passo}
+
+\begin{passos}
+  \item \textbf{Local}: inicie o Git no projeto (\texttt{git init}), crie o
+  \texttt{.gitignore} e faça o primeiro commit da base;
+  \item \textbf{Histórico}: refaça o histórico em commits atômicos
+  (\texttt{feat:}, \texttt{style:}, \texttt{fix:}) — se precisar, use
+  \texttt{git reset} para reorganizar antes de publicar;
+  \item \textbf{Remoto}: crie o repositório no GitHub e faça o primeiro
+  \texttt{push};
+  \item \textbf{README}: escreva um README profissional (descrição, captura,
+  como rodar, estrutura, link do deploy);
+  \item \textbf{PR}: crie uma branch \texttt{feature/melhorias}, faça uma
+  melhoria real no site, abra o PR, revise e faça o merge;
+  \item \textbf{Deploy}: publique no GitHub Pages (ou Vercel) e adicione o
+  link ao README;
+  \item \textbf{Documentação}: atualize a seção de referência do repositório
+  e deixe o \texttt{git log} limpo como prova de trabalho profissional.
+\end{passos}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Explique a diferença entre working directory, staging area e repositório.
+  \item O que faz \texttt{git status} e por que usá-lo com frequência?
+  \item Escreva uma mensagem de commit para ``corrigi o cálculo do total no carrinho'' usando Conventional Commits.
+  \item O que acontece quando duas branches alteram as mesmas linhas? Como você resolve?
+  \item Liste o fluxo completo para enviar uma mudança do seu computador ao GitHub.
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Desfazer sem medo}: pratique \texttt{git revert} (commit novo que desfaz), \texttt{git reset --soft} (volta ao staging) e \texttt{git stash} — e explique quando usar cada um.
+  \item \textbf{Histórico interativo}: use \texttt{git rebase -i} para squashar 3 commits de ``ajuste'' em 1 commit limpo antes do merge.
+  \item \textbf{Colaboração real}: convide um colega (ou um segundo usuário seu) para abrir um PR no seu repositório e resolva um conflito de verdade.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Política de branches}: desenhe a estratégia de branching do SkillHub (main protegida, PRs obrigatórios, tags de release) e documente-a.
+  \item \textbf{Revisão de código}: faça um code review real de um PR público no GitHub — comente por linha, priorize os achados e explique a lógica de priorização.
+  \item \textbf{Git para incidentes}: simule ``produção quebrou no commit X'' — use \texttt{git bisect} para encontrar o commit culpado em um histórico de 30 commits.
+  \item \textbf{Automação}: crie um script de hook (\texttt{pre-commit}) que roda lint + testes antes de cada commit e documente o ganho.
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Commitar segredos (\texttt{.env}, chaves) — o histórico guarda para sempre;
+  \item Commits gigantes sem mensagem útil (``update'', ``fix'', ``aaa'');
+  \item Trabalhar direto na \texttt{main} (a branch principal deve ficar sempre funcionando);
+  \item \texttt{git add .} sem revisar (o staging é seleção, não despejo);
+  \item Deletar branches com trabalho não fundido (\texttt{-D} destrói commits);
+  \item Medo de conflitos (conflitos são normais — resolva com calma e leitura).
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Git guarda snapshots com histórico completo; GitHub adiciona colaboração e revisão;
+  \item Fluxo: \texttt{status} $\rightarrow$ \texttt{add} $\rightarrow$ \texttt{commit} $\rightarrow$ \texttt{push/pull};
+  \item Branches isolam experimentos; a \texttt{main} fica sempre funcionando;
+  \item Commits atômicos com Conventional Commits são a assinatura do profissional;
+  \item PR + code review é o coração do trabalho em equipe;
+  \item Projeto entregue: repositório profissional publicado e documentado.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Documentação oficial do Git: \url{https://git-scm.com/doc}
+  \item GitHub Docs: \url{https://docs.github.com}
+  \item Conventional Commits: \url{https://www.conventionalcommits.org}
+  \item Git — Pro Git (livro oficial, grátis): \url{https://git-scm.com/book/pt-br/}
+\end{itemize}

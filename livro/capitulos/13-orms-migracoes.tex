@@ -1,0 +1,326 @@
+% ============================================================================
+% CAPÍTULO 13 — ORMs e migrações\index{migrações}
+% Texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{ORMs e Migrações: Prisma e Drizzle}
+\label{cap:orms}
+
+\begin{caixaconceito}
+\textbf{ORMs} (Object-Relational Mappers) traduzem tabelas SQL em objetos
+tipados do TypeScript — com segurança de tipos de ponta a ponta. Neste
+capítulo você dominará os dois líderes do ecossistema: \textbf{Prisma}
+(abstração madura e expressiva) e \textbf{Drizzle} (SQL-first, leve e rápido
+em serverless) \cite{prisma-docs,drizzle-docs}.
+\end{caixaconceito}
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Definir schemas de dados com Prisma\index{Prisma} e Drizzle\index{Drizzle};
+  \item Criar e aplicar migrações de forma segura;
+  \item Consultar e escrever dados com queries tipadas (incluindo relações);
+  \item Decidir entre Prisma e Drizzle com critérios técnicos;
+  \item Evitar o anti-padrão N+1\index{N+1} e otimizar queries;
+  \item Entregar o projeto do capítulo: a API de uma biblioteca.
+\end{objetivos}
+
+\section{Por que ORMs}
+
+Escrever SQL manualmente (capítulo~\ref{cap:postgresql}) é poderoso, mas
+repetitivo e propenso a erro: um nome de coluna digitado errado vira um erro
+\emph{em runtime}, quando o banco reclama — ou pior, uma query que devolve
+dados errados.
+
+ORMs geram as queries a partir de \emph{tipos}: o compilador pega erros de
+coluna, relação e tipo \emph{antes} de tocar no banco. E as \textbf{migrações}
+versionam o schema\index{schema} como o Git versiona o código — o banco evolui com o app, de
+forma auditável e reversível.
+
+\begin{caixaconceito}
+\textbf{Migração} = arquivo versionado que descreve uma mudança de schema
+(``criar tabela usuários'', ``adicionar coluna telefone''). Todos os ambientes
+(dev, staging, produção) aplicam a mesma sequência de migrações — nunca mais
+``alterar a tabela na mão''. O histórico de migrações é a ``partida de
+nascimento'' do banco.
+\end{caixaconceito}
+
+\section{Prisma: o padrão de mercado}
+
+O Prisma usa um schema declarativo próprio (\texttt{schema.prisma}) e gera um
+\textbf{client tipado} que você importa:
+
+\begin{lstlisting}[style=livro, language=SQL,
+  caption={Schema Prisma com relações.}, label={list:prisma-schema}]
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Autor {
+  id     Int     @id @default(autoincrement())
+  nome   String
+  livros Livro[]
+}
+
+model Livro {
+  id      Int    @id @default(autoincrement())
+  titulo  String
+  ano     Int
+  autorId Int
+  autor   Autor  @relation(fields: [autorId], references: [id])
+  emprestimos Emprestimo[]
+}
+
+model Emprestimo {
+  id             Int      @id @default(autoincrement())
+  livroId        Int
+  livro          Livro    @relation(fields: [livroId], references: [id])
+  nomeLeitor     String
+  dataEmprestimo DateTime @default(now())
+  dataDevolucao  DateTime?
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=livro, language=Bash,
+  caption={Comandos essenciais do Prisma.}, label={list:prisma-comandos}]
+npx prisma init
+npx prisma migrate dev --name criar-autores-e-livros   # gera e aplica
+npx prisma generate                                    # gera o client tipado
+npx prisma studio                                      # UI para inspecionar dados
+npx prisma migrate deploy                              # aplica migrações pendentes
+\end{lstlisting}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Queries tipadas com relações.}, label={list:prisma-query}]
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+// Buscar livros com autor e contagem de empréstimos (sem N+1)
+const livros = await prisma.livro.findMany({
+  where: { ano: { gte: 2020 } },
+  include: {
+    autor: true,
+    _count: { select: { emprestimos: true } },
+  },
+  orderBy: { titulo: "asc" },
+});
+
+// Criar com relação aninhada
+const novo = await prisma.livro.create({
+  data: {
+    titulo: "Clean Code",
+    ano: 2008,
+    autor: { connect: { id: 1 } },
+  },
+});
+
+// Transação: registrar empréstimo + marcar disponibilidade
+await prisma.$transaction(async (tx) => {
+  await tx.emprestimo.create({ data: { livroId: 2, nomeLeitor: "Ana" } });
+  // ... outras operações atômicas
+});
+\end{lstlisting}
+
+\begin{caixadica}
+O \texttt{include} do Prisma gera \emph{um} JOIN eficiente — é a cura oficial
+do N+1. E \texttt{prisma \$transaction} garante atomicidade (ACID) entre
+operações, como o \texttt{BEGIN}/\texttt{COMMIT} que você viu no SQL.
+\end{caixadica}
+
+\section{Drizzle: SQL-first, leve e serverless-friendly}
+
+O Drizzle inverte a filosofia: \emph{SQL com tipos}, sem camada de mágica.
+Você escreve queries quase iguais ao SQL — com autocomplete e verificação de
+tipos:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Schema Drizzle (tabelas tipadas).}, label={list:drizzle-schema}]
+import {
+  pgTable, serial, text, integer, timestamp, index,
+} from "drizzle-orm/pg-core";
+
+export const autores = pgTable("autores", {
+  id: serial("id").primaryKey(),
+  nome: text("nome").notNull(),
+});
+
+export const livros = pgTable(
+  "livros",
+  {
+    id: serial("id").primaryKey(),
+    titulo: text("titulo").notNull(),
+    ano: integer("ano").notNull(),
+    autorId: integer("autor_id")
+      .notNull()
+      .references(() => autores.id),
+  },
+  (t) => [index("idx_livros_autor").on(t.autorId)],
+);
+\end{lstlisting}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Query Drizzle próxima do SQL.}, label={list:drizzle-query}]
+import { eq, and, gte, sql } from "drizzle-orm";
+import { db } from "./db";
+import { livros, autores } from "./schema";
+
+// SELECT com JOIN, filtro e agregação
+const resultado = await db
+  .select({
+    titulo: livros.titulo,
+    autor: autores.nome,
+    emprestimos: sql<number>`count(*)`,
+  })
+  .from(livros)
+  .innerJoin(autores, eq(livros.autorId, autores.id))
+  .where(and(gte(livros.ano, 2020)))
+  .groupBy(livros.id, autores.nome);
+
+// INSERT, UPDATE, DELETE com tipos
+const novo = await db.insert(livros).values({
+  titulo: "Entendendo Algoritmos",
+  ano: 2017,
+  autorId: 1,
+}).returning();
+\end{lstlisting}
+
+\begin{caixadica}
+Drizzle usa \textbf{drizzle-kit} para migrações (\texttt{drizzle-kit migrate})
+e \texttt{drizzle-orm} para queries. O ponto forte: bundle \textasciitilde{}50
+kB e cold starts rápidos — o que o torna a escolha preferida em serverless
+(Vercel, Lambda).
+\end{caixadica}
+
+\section{Prisma vs Drizzle: critérios de decisão}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Comparativo Prisma vs Drizzle.}
+\label{tab:prisma-drizzle}
+\begin{tabularx}{\textwidth}{@{}l X X@{}}
+\toprule
+\textbf{Critério} & \textbf{Prisma} & \textbf{Drizzle} \\
+\midrule
+Filosofia & Abstração e DX & SQL-first, camada fina \\
+Curva de aprendizado & Suave (schema próprio) & Exige conhecer SQL \\
+Bundle/cold start & Maior & \textasciitilde{}50 kB, ideal serverless \\
+Queries complexas & Boas, com \texttt{raw} quando preciso & Nativas \\
+Migrações & \texttt{prisma migrate} & \texttt{drizzle-kit} \\
+Ecossistema & Muito maduro & Crescendo rápido \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{caixadica}
+Recomendação de mercado: \textbf{Prisma} para a maioria dos produtos (DX e
+velocidade de desenvolvimento); \textbf{Drizzle} para serverless de alta
+performance e times que querem controle total do SQL. Saber os dois = decisão
+técnica de senior.
+\end{caixadica}
+
+\section{O anti-padrão N+1}
+
+O erro de performance nº 1 com ORMs: buscar a lista e depois buscar a relação
+de \emph{cada} item individualmente. Se você tem 100 livros e acessa
+\texttt{livro.autor} de cada um, são \textbf{101 queries} ao banco — cada uma
+com latência de rede. O Prisma resolve com \texttt{include}; o Drizzle com
+\texttt{JOIN}. \textbf{Sempre confira as queries geradas} (logging do Prisma
+ou do Drizzle) — o N+1 é silencioso e só aparece sob carga.
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Ligando o log de queries (Prisma).}, label={list:orm-log}]
+const prisma = new PrismaClient({
+  log: ["query", "warn", "error"],
+});
+// Agora cada query aparece no console — o N+1 fica visível.
+\end{lstlisting}
+
+% ============================================================================
+\section{Projeto do capítulo: API de uma biblioteca}
+\label{sec:projeto13}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} construir a API de uma biblioteca pública — autores, livros
+e empréstimos — com Prisma, migrações e consultas tipadas.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Schema com 3 tabelas relacionadas e pelo menos 2 migrações no histórico;
+  \item CRUD de autores e livros, e registro de empréstimos (livro $\leftrightarrow$ leitor, com \texttt{dataDevolucao});
+  \item Endpoint de busca de livros por título/autor (contém, case-insensitive);
+  \item Endpoint ``livros emprestados'' sem N+1 (verifique com logs de query);
+  \item Seed\index{seed} com 10 autores e 30 livros reais (clássicos da computação e literatura);
+  \item Exercício bônus: refazer o mesmo projeto com Drizzle e comparar as duas experiências num README.
+\end{itemize}
+\end{caixaprojeto}
+
+\begin{caixadica}
+Migrações em produção exigem cuidado: rode \texttt{prisma migrate deploy}
+no deploy (capítulo~\ref{cap:cicd}), nunca em dev. E antes de migrar em
+produção, \emph{backup} — o capítulo~\ref{cap:postgresql} te ensinou
+\texttt{pg\_dump}.
+\end{caixadica}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item O que é uma migração e por que versioná-la?
+  \item Modele no Prisma: \texttt{Usuario} 1--N \texttt{Post} 1--N \texttt{Comentario}.
+  \item Escreva uma query Prisma que retorna posts com autor e comentários de um usuário específico.
+  \item Escreva a mesma query em Drizzle usando \texttt{innerJoin}.
+  \item Explique o problema N+1 com um exemplo concreto e as duas soluções.
+  \item O que faz \texttt{prisma migrate deploy} e quando usá-lo?
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Migração reversível}: crie uma migração, reverta-a (\texttt{migrate dev --rollback} ou equivalente) e documente o que acontece com os dados.
+  \item \textbf{Transação com Prisma}: implemente a transação ``registrar empréstimo + marcar livro como emprestado'' com \texttt{prisma.\$transaction}.
+  \item \textbf{Busca com paginação}: adicione \texttt{?pagina=\&limite=} na busca de livros e retorne o total.
+  \item \textbf{Comparativo Drizzle}: refaça o CRUD com Drizzle e escreva o README comparando DX, tipos e queries.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Índices via schema}: adicione índices no Prisma/Drizzle para as colunas de busca e comprove a melhoria com \texttt{EXPLAIN ANALYZE}.
+  \item \textbf{Data de devolução}: implemente a regra ``livro atrasado'' com comparação de datas no banco (não no Node) e um endpoint de relatório de atrasos.
+  \item \textbf{Soft delete}: implemente exclusão lógica (\texttt{deletedAt}) e explique os trade-offs vs.\ exclusão física.
+  \item \textbf{Seed idempotente}: escreva um seed que roda N vezes sem duplicar dados (\texttt{upsert}).
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Fazer \texttt{include} em cascata sem necessidade (traga o mínimo);
+  \item N+1 queries silenciosas (ligue o logging de queries em dev);
+  \item Alterar o banco fora das migrações (schema e código dessincronizam);
+  \item Colocar \texttt{DATABASE\_URL} no código (use \texttt{.env}, capítulo~\ref{cap:seguranca});
+  \item Migrar em produção sem backup/teste (capítulo~\ref{cap:cicd});
+  \item \texttt{prisma generate} esquecido após mudar o schema (client desatualizado).
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item ORMs traduzem tabelas em tipos e geram queries seguras;
+  \item Migrações versionam o schema como o Git versiona o código;
+  \item Prisma: abstração e DX; Drizzle: SQL-first e leve — saiba escolher;
+  \item N+1 é o anti-padrão nº 1; \texttt{include}/\texttt{JOIN} resolvem;
+  \item Log de queries ligado em dev revela problemas silenciosos;
+  \item Projeto entregue: API de biblioteca com migrações e seed.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Documentação do Prisma: \url{https://www.prisma.io/docs}
+  \item Documentação do Drizzle: \url{https://orm.drizzle.team}
+  \item Prisma vs Drizzle (comparação oficial): \url{https://www.prisma.io/docs/orm/more/comparisons/prisma-and-drizzle}
+\end{itemize}

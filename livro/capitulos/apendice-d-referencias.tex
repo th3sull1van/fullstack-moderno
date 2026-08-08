@@ -1,0 +1,71 @@
+% ============================================================================
+% APÊNDICE D — Referências e fontes de pesquisa
+% ============================================================================
+\chapter{Referências, Fontes de Pesquisa e Metodologia}
+\label{apendice:referencias}
+
+Este apêndice documenta \emph{como} o livro foi fundamentado: as fontes de
+mercado, a prioridade dada à documentação oficial e as datas de consulta
+(detalhadas no apêndice~\ref{apendice:manutencao}).
+
+\section{Metodologia de pesquisa}
+
+\begin{enumerate}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Dados de mercado} foram extraídos de levantamentos públicos e
+  independentes: Stack Overflow Developer Survey 2025, GitHub Octoverse 2025 e
+  State of JavaScript 2024;
+  \item \textbf{Conteúdo técnico} prioriza a documentação oficial de cada
+  tecnologia (Next.js, React, TypeScript, PostgreSQL, Node.js, Tailwind,
+  Prisma/Drizzle, Vitest, Playwright, Docker, AWS, OWASP);
+  \item \textbf{Revisão por pares simulada} (apêndice~\ref{apendice:revisao})
+  valida tecnicamente o conteúdo, cruza as fontes e verifica a pedagogia;
+  \item Todo código do livro é executável no repositório \texttt{codigo/} e
+  passa pelos testes da suíte de revisão.
+\end{enumerate}
+
+\section{Fontes primárias de mercado}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Stack Overflow Developer Survey 2025 --- Technology: \url{https://survey.stackoverflow.co/2025/technology}
+  \item Stack Overflow Developer Survey 2025 (geral): \url{https://survey.stackoverflow.co/2025}
+  \item GitHub Octoverse 2025: \url{https://octoverse.github.com/}
+  \item State of JavaScript 2024: \url{https://2024.stateofjs.com/}
+  \item ThoughtWorks Technology Radar: \url{https://www.thoughtworks.com/radar}
+\end{itemize}
+
+\section{Documentação oficial por tecnologia}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item HTML/CSS/JS: MDN Web Docs --- \url{https://developer.mozilla.org}
+  \item Next.js: \url{https://nextjs.org/docs}
+  \item React: \url{https://react.dev}
+  \item TypeScript: \url{https://www.typescriptlang.org/docs/}
+  \item Node.js: \url{https://nodejs.org/docs/latest/api/}
+  \item PostgreSQL 18: \url{https://www.postgresql.org/docs/current/}
+  \item Tailwind CSS: \url{https://tailwindcss.com/docs}
+  \item Prisma: \url{https://www.prisma.io/docs};\ \ Drizzle: \url{https://orm.drizzle.team}
+  \item Vitest: \url{https://vitest.dev};\ \ Playwright: \url{https://playwright.dev}
+  \item Docker: \url{https://docs.docker.com}
+  \item GitHub Actions: \url{https://docs.github.com/actions}
+  \item AWS: \url{https://docs.aws.amazon.com}
+  \item OWASP Top 10:2025: \url{https://owasp.org/Top10/2025/en/}
+  \item Vercel AI SDK: \url{https://ai-sdk.dev}
+\end{itemize}
+
+\section{Padrões de citação usados no livro}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Citação acadêmica (BibLaTeX)}: para dados de mercado e
+  padrões (ex.: \cite{so2025}, \cite{octoverse2025}, \cite{owasp2025});
+  \item \textbf{Referência direta à documentação oficial}: ao final de cada
+  capítulo, na seção ``Referências oficiais para aprofundar'';
+  \item \textbf{URLs no texto}: \texttt{\url{...}} quando a referência é
+  operacional (ferramenta, validador, jogo educativo).
+\end{itemize}
+
+\begin{caixadica}
+A bibliografia completa, em formato BibLaTeX, vive em
+\texttt{livro/referencias.bib}. As datas de consulta e as versões registradas
+de cada tecnologia estão no apêndice~\ref{apendice:manutencao} e no arquivo
+\texttt{MANUTENCAO.md} — mantenha-os atualizados em cada revisão do livro.
+\end{caixadica}

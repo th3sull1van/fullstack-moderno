@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/* Dark mode por CLASSE (.dark no <html>) — sem FOUC graças ao script inline */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ===========================================================================
+   Tokens do OrçaUI — a fonte única da verdade (Tailwind v4 @theme)
+   =========================================================================== */
+@theme {
+  /* Cores de marca (OrçaFácil) */
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+
+  /* Neutros (superfície/texto) */
+  --color-neutro-50: #f8fafc;
+  --color-neutro-100: #f1f5f9;
+  --color-neutro-200: #e2e8f0;
+  --color-neutro-500: #64748b;
+  --color-neutro-700: #334155;
+  --color-neutro-900: #0f172a;
+
+  /* Semânticas */
+  --color-sucesso: #16a34a;
+  --color-alerta: #d97706;
+  --color-perigo: #dc2626;
+  --color-info: #0284c7;
+
+  /* Tipografia */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+
+  /* Espaçamento de design system (além da escala do Tailwind) */
+  --spacing-token: 0.25rem;
+
+  /* Raios */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 1rem;
+
+  /* Sombras */
+  --shadow-painel: 0 1px 3px rgb(15 23 42 / 0.1), 0 4px 12px rgb(15 23 42 / 0.08);
+  --shadow-flutuante: 0 10px 40px rgb(15 23 42 / 0.25);
+}
+
+body {
+  @apply bg-neutro-50 text-neutro-900 antialiased dark:bg-neutro-900 dark:text-neutro-50;
+}
+
+/* Foco visível padrão do design system (WCAG: nunca remova o outline) */
+:focus-visible {
+  @apply outline-2 outline-offset-2 outline-brand-500;
+}

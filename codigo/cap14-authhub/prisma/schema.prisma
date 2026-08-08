@@ -1,0 +1,38 @@
+// AuthHub — schema de autenticação.
+//
+// Em dev/teste usamos SQLite (arquivo local, sem servidor). Em produção troque
+// o provider para "postgresql" e aponte DATABASE_URL para o PostgreSQL — o
+// restante do schema (e as migrações) permanece idêntico.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id            String         @id @default(uuid())
+  nome          String
+  email         String         @unique
+  senhaHash     String // argon2id — nunca armazene senha em texto puro
+  papel         String         @default("USUARIO") // USUARIO | MODERADOR | ADMIN
+  criadoEm      DateTime       @default(now())
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  hash       String    @unique // sha256 do token — nunca o token em texto puro
+  familia    String // família de rotação (detecção de reuse)
+  usadoEm    DateTime?
+  revogadoEm DateTime?
+  expiraEm   DateTime
+  criadoEm   DateTime  @default(now())
+  usuario    Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId  String
+
+  @@index([usuarioId])
+}

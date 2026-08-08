@@ -1,0 +1,84 @@
+# ---------------------------------------------------------------------------
+# Ferramenta local (não faz parte do repositório)
+# ---------------------------------------------------------------------------
+.freebuff/
+
+# ---------------------------------------------------------------------------
+# Node / JavaScript / TypeScript
+# ---------------------------------------------------------------------------
+node_modules/
+dist/
+coverage/
+.next/
+out/
+*.tsbuildinfo
+npm-debug.log*
+
+# ---------------------------------------------------------------------------
+# Variáveis de ambiente (mantenha os exemplos versionados)
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# ---------------------------------------------------------------------------
+# Bancos locais (SQLite/Postgres locais dos projetos)
+# ---------------------------------------------------------------------------
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# ---------------------------------------------------------------------------
+# Artefatos de build do livro (LaTeX / tex4ebook) — o PDF/EPUB final é
+# publicado via GitHub Releases, não versionado aqui
+# ---------------------------------------------------------------------------
+livro/*.aux
+livro/capitulos/*.aux
+livro/*.bbl
+livro/*.bcf
+livro/*.blg
+livro/*.run.xml
+livro/*.toc
+livro/*.out
+livro/*.lof
+livro/*.lot
+livro/*.fdb_latexmk
+livro/*.fls
+livro/*.log
+livro/*.lg
+livro/*.idv
+livro/*.4ct
+livro/*.4tc
+livro/*.xref
+livro/*.t4t
+livro/*.xdv
+livro/*.idx
+livro/*.ind
+livro/*.ilg
+livro/*.synctex.gz
+livro/*.tmp
+livro/*.nav
+livro/*.snm
+livro/*.vrb
+livro/*.ncx
+livro/*.html
+livro/*.css
+livro/content.opf
+livro/main-epub/
+livro/main.pdf
+livro/main.epub
+livro/main-*.pdf
+livro/main2.*
+
+# ---------------------------------------------------------------------------
+# Playwright
+# ---------------------------------------------------------------------------
+test-results/
+playwright-report/
+
+# ---------------------------------------------------------------------------
+# Sistema operacional
+# ---------------------------------------------------------------------------
+Thumbs.db
+.DS_Store

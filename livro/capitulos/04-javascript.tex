@@ -1,0 +1,385 @@
+% ============================================================================
+% CAPÍTULO 4 — JavaScript\index{JavaScript}: a linguagem da web
+% ============================================================================
+\chapter{JavaScript: A Linguagem da Web}
+\label{cap:js}
+
+\begin{caixaconceito}
+\textbf{JavaScript} é a linguagem de \emph{comportamento} da web — a única que
+os navegadores executam nativamente. Hoje ela também roda em servidores
+(Node.js), em bancos e até em edge computing: é a linguagem mais usada do
+mundo \cite{so2025}.
+\end{caixaconceito}
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Escrever código JavaScript moderno (ES2023+) com \texttt{const}, \texttt{let}, arrow functions e template literals;
+  \item Manipular arrays e objetos com \texttt{map}, \texttt{filter} e \texttt{reduce};
+  \item Interagir com a página via DOM\index{DOM} e eventos;
+  \item Programar de forma assíncrona com \texttt{async/await} e \texttt{fetch};
+  \item Aplicar algoritmos úteis de mercado (embaralhamento Fisher--Yates, cronômetros, recordes em \texttt{localStorage});
+  \item Entregar o projeto do capítulo: um jogo da memória completo.
+\end{objetivos}
+
+\section{O papel do JavaScript}
+
+HTML diz \emph{o que é}, CSS diz \emph{como parece}, JavaScript diz \emph{o que
+faz}: valida formulários, busca dados em APIs, anima interfaces e atualiza a
+página sem recarregá-la. É o motor de interatividade da web moderna — e a base
+de tudo o que você construirá nos capítulos seguintes (React, Node.js, Next.js).
+
+\begin{caixadica}
+JavaScript \textbf{não} é Java. A confusão é histórica (marketing dos anos 90),
+mas as linguagens não têm relação. JavaScript é dinâmica, tipada
+\emph{implicitamente} e executada por engines como o V8 (Chrome/Node). No
+capítulo~\ref{cap:typescript} você adicionará tipos estáticos com TypeScript.
+\end{caixadica}
+
+\section{Variáveis e tipos primitivos}
+
+\begin{lstlisting}[style=livro, language=JavaScript,
+  caption={Declarações e tipos primitivos.}, label={list:js-variaveis}]
+const nome = "Ana";          // constante — não pode ser reatribuída
+let idade = 28;              // variável mutável
+var legado = "evite";        // var tem escopo de função; quase nunca use
+
+const ativo = true;          // boolean
+let saldo = 19.9;            // number (inteiros e decimais são o mesmo tipo)
+const nulo = null;           // ausência intencional de valor
+let indefinido;              // undefined: declarada sem valor
+const simbolo = Symbol("id");// identificador único
+const big = 9007199254740993n; // BigInt para inteiros gigantes
+
+console.log(typeof nome);    // "string"
+\end{lstlisting}
+
+\begin{caixaarmadilha}
+Use \texttt{const} por padrão e \texttt{let} apenas quando precisar
+reatribuir. Isso torna o código previsível e evita bugs de estado. O \texttt{var}
+fica para código legado (você o encontrará em sistemas antigos no mercado).
+\end{caixaarmadilha}
+
+\section{Igualdade, template literals e estruturas de controle}
+
+\begin{lstlisting}[style=livro, language=JavaScript,
+  caption={Igualdade estrita, template literals e controle de fluxo.},
+  label={list:js-controle}]
+// === compara valor E tipo (sempre use ===, nunca ==)
+console.log(5 === "5");   // false
+console.log(5 == "5");    // true (coerção implícita — evite!)
+
+// Template literals com crases
+const cidade = "Belo Horizonte";
+console.log(`Bem-vindo, ${nome}, de ${cidade}!`);
+
+// Controle de fluxo
+if (idade >= 18) {
+  console.log("Maior de idade");
+} else {
+  console.log("Menor de idade");
+}
+
+for (let i = 1; i <= 3; i++) {
+  console.log(i);
+}
+
+const cores = ["azul", "verde"];
+for (const cor of cores) {
+  console.log(cor);
+}
+\end{lstlisting}
+
+\section{Funções: declarações, expressões e arrow functions}
+
+\begin{lstlisting}[style=livro, language=JavaScript,
+  caption={Os três formatos de função.}, label={list:js-funcoes}]
+// 1. Declaração (hoisted — pode ser chamada antes da definição)
+function calcularImposto(valor, aliquota) {
+  return valor * aliquota;
+}
+
+// 2. Expressão de função
+const calcularJuros = function (valor, taxa) {
+  return valor * (1 + taxa);
+};
+
+// 3. Arrow function (padrão moderno)
+const dobrar = (x) => x * 2;
+const somar = (a, b) => {
+  const total = a + b;
+  return total;
+};
+
+console.log(calcularImposto(1000, 0.15)); // 150
+\end{lstlisting}
+
+\begin{caixaconceito}
+\textbf{Escopo} define onde uma variável é visível. \texttt{let} e
+\texttt{const} têm escopo de bloco (\texttt{\{...\}}); \texttt{var} tem escopo
+de função. Arrow functions não criam seu próprio \texttt{this} — o que evita
+uma das maiores dores de cabeça do JavaScript antigo.
+\end{caixaconceito}
+
+\section{Arrays e objetos: o trio \texttt{map}, \texttt{filter}, \texttt{reduce}}
+
+Estas três funções resolvem a maioria dos problemas de processamento de dados
+— você as usará todos os dias na carreira:
+
+\begin{lstlisting}[style=livro, language=JavaScript,
+  caption={map, filter e reduce — as três funções essenciais.},
+  label={list:js-map}]
+const pedidos = [
+  { id: 1, produto: "Notebook", valor: 4500, pago: true },
+  { id: 2, produto: "Mouse", valor: 120, pago: false },
+  { id: 3, produto: "Teclado", valor: 350, pago: true },
+];
+
+// map: transforma cada item
+const nomes = pedidos.map((p) => p.produto);
+// ["Notebook", "Mouse", "Teclado"]
+
+// filter: seleciona itens
+const pagos = pedidos.filter((p) => p.pago);
+// [Notebook, Teclado]
+
+// reduce: acumula em um único valor
+const totalPago = pedidos
+  .filter((p) => p.pago)
+  .reduce((soma, p) => soma + p.valor, 0);
+// 4850
+
+// Destructuring e spread
+const { produto, valor } = pedidos[0];
+const copia = [...pedidos, { id: 4, produto: "Monitor", valor: 900, pago: false }];
+\end{lstlisting}
+
+\begin{caixadica}
+Pense em \texttt{map} como ``transforme cada item'', em \texttt{filter} como
+``mantenha apenas os que passam no teste'' e em \texttt{reduce} como ``acumule
+tudo em um resultado''. Esses três verbos substituem 90\% dos loops
+\texttt{for} que você veria em código antigo.
+\end{caixadica}
+
+\section{O DOM: o JavaScript conversa com a página}
+
+O \textbf{DOM} (Document Object Model) é a representação da página em árvore de
+objetos que o JavaScript pode ler e alterar:
+
+\begin{lstlisting}[style=livro, language=JavaScript,
+  caption={Manipulação básica do DOM.}, label={list:js-dom}]
+// Selecionar
+const titulo = document.querySelector("h1");
+const botoes = document.querySelectorAll(".botao");
+const formulario = document.getElementById("cadastro");
+
+// Ler e alterar
+titulo.textContent = "Novo título";
+titulo.style.color = "#1f4e79";
+titulo.classList.add("destaque");
+
+// Criar e inserir
+const item = document.createElement("li");
+item.textContent = "Item novo";
+document.querySelector("ul").appendChild(item);
+
+// Remover
+titulo.remove();
+\end{lstlisting}
+
+\section{Eventos: a página reage ao usuário}
+
+\begin{lstlisting}[style=livro, language=JavaScript,
+  caption={Eventos: clique, input e envio de formulário.}, label={list:js-eventos}]
+const botao = document.querySelector("#enviar");
+const campo = document.querySelector("#nome");
+
+botao.addEventListener("click", (evento) => {
+  console.log("Clicado!", evento.target);
+});
+
+campo.addEventListener("input", () => {
+  campo.dataset.tamanho = String(campo.value.length);
+});
+
+formulario.addEventListener("submit", (evento) => {
+  evento.preventDefault(); // impede o recarregamento da página
+  console.log("Enviando dados...");
+});
+\end{lstlisting}
+
+\begin{caixaarmadilha}
+Em um formulário, se o handler de \texttt{submit} não chamar
+\texttt{evento.preventDefault()}, a página recarrega e você perde o estado —
+o bug mais comum de iniciantes que ``tentam fazer fetch\index{fetch}''. Esse detalhe
+aparece em toda entrevista de frontend.
+\end{caixaarmadilha}
+
+\section{Assincronismo: promises, \texttt{async/await} e \texttt{fetch}}
+
+O JavaScript é \emph{mono-thread} com um \emph{event loop}: ele não espera
+operações lentas (rede, disco) paradas; ele agenda uma continuação e segue
+executando. As \textbf{promises} modelam esse futuro, e
+\texttt{async/await} o torna legível:
+
+\begin{lstlisting}[style=livro, language=JavaScript,
+  caption={fetch + async/await: consumindo uma API pública.},
+  label={list:js-fetch}]
+async function carregarUsuarios() {
+  try {
+    const resposta = await fetch("https://api.exemplo.com/usuarios");
+    if (!resposta.ok) {
+      throw new Error(`Erro HTTP ${resposta.status}`);
+    }
+    const usuarios = await resposta.json();
+    return usuarios;
+  } catch (erro) {
+    console.error("Falha ao carregar:", erro);
+    return [];
+  }
+}
+
+// Uso
+const usuarios = await carregarUsuarios();
+console.log(usuarios.length);
+\end{lstlisting}
+
+\begin{caixaconceito}
+\texttt{await} só funciona dentro de funções \texttt{async}. Toda função
+\texttt{async} retorna uma \textbf{Promise}. O fluxo \emph{try/catch/finally}
+é o padrão para tratar erros de rede — você o usará em todas as APIs que
+construir a partir do capítulo~\ref{cap:http}.
+\end{caixaconceito}
+
+\section{Módulos ES: organizando o código}
+
+\begin{lstlisting}[style=livro, language=JavaScript,
+  caption={Módulos ES: exportar e importar.}, label={list:js-modulos}]
+// utils.js
+export function formatarMoeda(valor) {
+  return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+export const TAXA_PADRAO = 0.15;
+
+// main.js
+import { formatarMoeda, TAXA_PADRAO } from "./utils.js";
+console.log(formatarMoeda(1234.5)); // R$ 1.234,50
+\end{lstlisting}
+
+\begin{caixadica}
+Módulos ES (\texttt{import}/\texttt{export}) são o padrão moderno em todos os
+frameworks. A partir do capítulo~\ref{cap:node}, você os usará diariamente —
+inclusive para testar funções isoladas com Vitest.
+\end{caixadica}
+
+% ============================================================================
+\section{Projeto do capítulo: jogo da memória}
+\label{sec:projeto4}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} construir um jogo da memória completo em JavaScript puro,
+com embaralhamento aleatório, cronômetro, contador de jogadas e recorde
+persistente no navegador.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Grade 4×4 com 8 pares de emojis embaralhados a cada partida;
+  \item Algoritmo de embaralhamento \textbf{Fisher--Yates} implementado do zero;
+  \item Lógica de pares: cartas erradas voltam após 700ms; certas ficam verdes;
+  \item Cronômetro e contador de jogadas atualizados em tempo real;
+  \item Recorde salvo em \texttt{localStorage} e exibido na tela;
+  \item Acessível: botões reais, \texttt{aria-label} dinâmico e \texttt{:focus-visible}.
+\end{itemize}
+\end{caixaprojeto}
+
+O código completo do jogo (Listagem~\ref{list:jogo-js}):
+
+\lstinputlisting[style=livro, language=JavaScript,
+  caption={Lógica completa do jogo — \texttt{codigo/cap04-jogo-memoria/script.js}.},
+  label={list:jogo-js}]
+  {\codigopath/cap04-jogo-memoria/script.js}
+
+\begin{caixadica}
+Para rodar: abra \texttt{codigo/cap04-jogo-memoria/index.html} direto no
+navegador, ou sirva com \texttt{npx serve codigo/cap04-jogo-memoria}.
+Teste também no DevTools $\rightarrow$ Console: os \texttt{console.log} ajudam
+a depurar passo a passo. \emph{Nota de tipografia}: os emojis das cartas
+podem aparecer como símbolos simples no PDF conforme a fonte instalada;
+no navegador eles aparecem coloridos, como o jogo foi desenhado.
+\end{caixadica}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Qual a diferença entre \texttt{const}, \texttt{let} e \texttt{var}?
+  Escreva um exemplo em que \texttt{let} é necessário.
+  \item Por que usar \texttt{===} em vez de \texttt{==}? Dê um exemplo em que
+  \texttt{==} produz um resultado surpreendente.
+  \item Dado \texttt{const nums = [1, 2, 3, 4, 5]}, use \texttt{map} para
+  dobrar, \texttt{filter} para pares e \texttt{reduce} para somar — sem loops.
+  \item O que faz \texttt{evento.preventDefault()} em um formulário?
+  \item Explique o que é uma Promise\index{Promise} e por que \texttt{async/await} foi criado.
+  \item Crie um botão que, ao ser clicado, adiciona um item a uma lista
+  \texttt{ul} usando \texttt{createElement} e \texttt{appendChild}.
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{FizzBuzz}: escreva FizzBuzz (múltiplos de 3 $\rightarrow$ Fizz,
+  5 $\rightarrow$ Buzz, ambos $\rightarrow$ FizzBuzz) com arrow function e \texttt{map}.
+  \item \textbf{Contador de palavras}: dado um texto, retorne um objeto com a
+  frequência de cada palavra usando \texttt{reduce}.
+  \item \textbf{Cronômetro Pomodoro}: adapte o cronômetro do jogo em um app de
+  25 minutos com alerta sonoro (Web Audio API) e pausa/retomada.
+  \item \textbf{Modo difícil}: aumente o jogo para 6×6 (18 pares) com
+  dificuldade selecionável e recorde por dificuldade.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Debounce:} implemente \texttt{debounce(fn, 300)} — função que
+  só executa 300ms após a última chamada — e use-a em uma busca que faz
+  \texttt{fetch} a cada tecla. Explique por que isso importa para performance.
+  \item \textbf{Event delegation:} refatore a lista de cartas do jogo para usar
+  \emph{um único} listener na grade (\texttt{event.target}), em vez de um
+  listener por carta. Compare a performance com 1000 cartas.
+  \item \textbf{Closures em produção:} crie um contador usando closure (função
+  que retorna função) e explique onde closures\index{closures} aparecem em React (pistas:
+  \texttt{useState}, \texttt{useEffect}).
+  \item \textbf{Consumo real de API:} busque dados da API pública
+  \url{https://api.github.com/users/usuario} e renderize nome, avatar e
+  repositórios de um usuário, com tratamento de erro para \texttt{404}.
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Esquecer \texttt{await} (você recebe uma Promise, não o dado);
+  \item Usar \texttt{==} e sofrer com coerção implícita;
+  \item Mutar arrays/objetos por engano (prefira \texttt{map}/\texttt{filter}/\texttt{spread});
+  \item Anexar 1000 listeners onde 1 (delegation) resolve;
+  \item Bloquear a UI com loops síncronos pesados — use \texttt{setTimeout}/\texttt{requestAnimationFrame}.
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item JavaScript é a linguagem de comportamento da web e a mais usada do mundo;
+  \item \texttt{const}/\texttt{let}, \texttt{===}, template literals e arrow functions são o padrão moderno;
+  \item \texttt{map}, \texttt{filter}, \texttt{reduce} resolvem o processamento de dados;
+  \item DOM + eventos conectam o código à interface;
+  \item \texttt{async/await} + \texttt{fetch} conversam com APIs;
+  \item Projeto entregue: jogo da memória com Fisher--Yates, cronômetro e recorde.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item MDN — JavaScript: \url{https://developer.mozilla.org/pt-BR/docs/Web/JavaScript}
+  \item MDN — Guia de JavaScript: \url{https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide}
+  \item JavaScript.info (referência didática): \url{https://javascript.info}
+  \item MDN — Fetch API: \url{https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API}
+  \item ECMAScript Language Specification: \url{https://tc39.es/ecma262/}
+\end{itemize}

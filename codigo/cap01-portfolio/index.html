@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Portfólio de desenvolvedor full stack em formação." />
+  <title>Meu Portfólio — Desenvolvedor Full Stack</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="cabecalho">
+    <h1>Olá, eu sou <span class="destaque">Seu Nome</span></h1>
+    <p class="subtitulo">Desenvolvedor full stack em formação</p>
+  </header>
+
+  <main>
+    <section id="sobre" aria-labelledby="titulo-sobre">
+      <h2 id="titulo-sobre">Sobre mim</h2>
+      <p>
+        Sou apaixonado por transformar ideias em produtos digitais. Estou
+        construindo minha base em desenvolvimento web full stack com
+        TypeScript, React e Next.js.
+      </p>
+    </section>
+
+    <section id="habilidades" aria-labelledby="titulo-habilidades">
+      <h2 id="titulo-habilidades">Habilidades</h2>
+      <ul class="lista-habilidades">
+        <li>HTML semântico e acessibilidade</li>
+        <li>CSS moderno e responsivo</li>
+        <li>JavaScript e TypeScript</li>
+        <li>Git e GitHub</li>
+      </ul>
+    </section>
+
+    <section id="contato" aria-labelledby="titulo-contato">
+      <h2 id="titulo-contato">Contato</h2>
+      <form id="formulario-contato">
+        <label for="nome">Nome</label>
+        <input type="text" id="nome" name="nome" required />
+
+        <label for="mensagem">Mensagem</label>
+        <textarea id="mensagem" name="mensagem" rows="4" required></textarea>
+
+        <button type="submit">Enviar</button>
+        <p id="status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <p>© 2026 Seu Nome — construído com o livro "Full Stack Moderno"</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

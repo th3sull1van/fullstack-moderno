@@ -1,0 +1,110 @@
+/* Estilo básico da página de receitas (CSS a fundo no capítulo 3). */
+:root {
+  --cor-primaria: #7b2d26;
+  --cor-fundo: #fdf8f2;
+  --cor-texto: #2c2118;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--cor-texto);
+  background-color: var(--cor-fundo);
+  line-height: 1.7;
+}
+
+header {
+  background-color: var(--cor-primaria);
+  padding: 1rem 2rem;
+}
+
+nav a {
+  color: #ffffff;
+  margin-right: 1.2rem;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+main {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  border: 1px solid #d9c9b8;
+  padding: 0.5rem 0.8rem;
+  text-align: left;
+}
+
+caption {
+  caption-side: top;
+  font-style: italic;
+  margin-bottom: 0.5rem;
+}
+
+form div {
+  margin-bottom: 1rem;
+}
+
+label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+input,
+textarea {
+  font: inherit;
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid #cbb9a4;
+  border-radius: 6px;
+}
+
+button {
+  font: inherit;
+  font-weight: 700;
+  padding: 0.6rem 1.4rem;
+  border: none;
+  border-radius: 6px;
+  background-color: var(--cor-primaria);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+aside {
+  margin-top: 2rem;
+  padding: 1rem;
+  background-color: #f3e9dc;
+  border-radius: 8px;
+}
+
+footer {
+  text-align: center;
+  padding: 1.5rem;
+  background-color: #efe3d2;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 600px) {
+  h1 {
+    font-size: 1.5rem;
+  }
+}

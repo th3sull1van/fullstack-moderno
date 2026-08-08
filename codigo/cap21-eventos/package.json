@@ -1,0 +1,23 @@
+{
+  "name": "cap21-eventos",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Arquitetura de eventos: filas assíncronas com BullMQ + idempotência (capítulo 21)",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "dev:worker": "tsx src/worker.ts",
+    "dev:produtor": "tsx src/produtor.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0",
+    "vitest": "^4.0.0"
+  },
+  "dependencies": {
+    "bullmq": "^5.0.0",
+    "ioredis": "^5.0.0"
+  }
+}

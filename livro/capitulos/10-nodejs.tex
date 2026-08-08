@@ -1,0 +1,384 @@
+% ============================================================================
+% CAPÍTULO 10 — Node.js\index{Node.js}
+% Texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{Node.js: JavaScript no Servidor}
+\label{cap:node}
+
+\begin{caixaconceito}
+\textbf{Node.js} é o runtime que executa JavaScript fora do navegador —
+\emph{o} ambiente de backend do ecossistema TypeScript \cite{node-docs,node24}.
+Com o Node 24 (LTS), você ganha suporte nativo a \texttt{.env}, test runner
+aprimorado e as otimizações do V8 13.6.
+\end{caixaconceito}
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Explicar o event loop\index{event loop}, o modelo de I/O assíncrono e o \emph{single thread} do Node;
+  \item Gerenciar dependências e scripts com npm\index{npm};
+  \item Ler e escrever arquivos com o módulo \texttt{fs} (promises);
+  \item Estruturar um projeto backend com ES Modules e TypeScript;
+  \item Escrever código com Node nativo (sem framework) para entender a base;
+  \item Entregar o projeto do capítulo: um encurtador de URLs.
+\end{objetivos}
+
+\section{O modelo de execução: event loop e I/O não bloqueante}
+
+Servidores tradicionais criam \emph{uma thread por requisição}: cada conexão
+ocupa um thread do sistema operacional esperando — a maioria das vezes, apenas
+\emph{esperando} por I/O (rede, disco, banco). Com milhares de conexões, os
+threads acabam.
+
+O Node inverte esse modelo: roda em \textbf{uma única thread} com um
+\textbf{event loop}. Operações lentas (I/O) são \emph{delegadas} ao sistema
+operacional e o loop continua processando outras requisições. Quando a
+operação termina, sua continuação (callback/promise) volta para a fila e é
+executada.
+
+\begin{caixaconceito}
+O \textbf{event loop} é um ciclo: (1) executa o código síncrono da fila;
+(2) processa callbacks de I/O concluídos; (3) executa timers vencidos;
+(4) repete. Como nunca \emph{espera} parado, uma instância Node atende
+milhares de conexões simultâneas com pouquíssima memória. É o que torna o
+Node ideal para APIs — e o que exige disciplina para não bloquear o loop.
+\end{caixaconceito}
+
+\begin{caixaarmadilha}
+\textbf{Nunca bloqueie o event loop.} Um \texttt{for} pesado, um
+\texttt{JSON.parse} gigante ou um \texttt{crypto} síncrono dentro de um
+handler de requisição \emph{congelam o servidor inteiro} — todas as outras
+requisições esperam. Para CPU intensiva, use \emph{worker threads} ou
+serviços dedicados. O Node brilha em I/O; ele não foi feito para calcular
+fatoriais de um bilhão na hot path.
+\end{caixaarmadilha}
+
+\section{Instalando e verificando o ambiente}
+
+Você já instalou o Node no apêndice~\ref{apendice:instalacao}. Verifique:
+
+\begin{lstlisting}[style=livro, language=Bash, caption={Verificação do ambiente.}, label={list:node-verificar}]
+node --version   # v24.x ou superior (LTS)
+npm --version    # 11.x
+\end{lstlisting}
+
+\section{ES Modules e o gerenciamento de projetos}
+
+O Node moderno usa \textbf{ECMAScript Modules} (\texttt{import}/\texttt{export})
+— o mesmo padrão que você viu no capítulo~\ref{cap:js}. Basta declarar
+\texttt{"type": "module"} no \texttt{package.json}:
+
+\begin{lstlisting}[style=livro, language=JSON,
+  caption={package.json com ES Modules e scripts.}, label={list:node-package}]
+{
+  "name": "encurtador",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/servidor.ts",
+    "start": "node src/servidor.ts",
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.0",
+    "@types/node": "^24.0.0"
+  }
+}
+\end{lstlisting}
+
+\begin{caixadica}
+O \texttt{--watch} do Node reinicia o servidor a cada alteração — o
+\emph{hot reload} sem dependência extra. E o Node 22+ executa TypeScript
+diretamente (type stripping): \texttt{node src/servidor.ts} funciona sem etapa
+de build. O \texttt{tsc --noEmit} continua sendo o guardião dos tipos.
+\end{caixadica}
+
+\section{I/O de arquivos com \texttt{node:fs/promises}}
+
+O módulo \texttt{fs} (filesystem) é onde você sente o I/O assíncrono na
+prática. Use sempre a versão \emph{promises}:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Lendo e escrevendo arquivos de forma assíncrona.},
+  label={list:node-fs}]
+import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
+
+async function salvarUsuario(novo: { nome: string; email: string }) {
+  const caminho = "./dados/usuarios.json";
+  await mkdir("./dados", { recursive: true });
+
+  const conteudo = existsSync(caminho)
+    ? await readFile(caminho, "utf8")
+    : "[]";
+
+  const usuarios = JSON.parse(conteudo) as Array<{ id: number } & typeof novo>;
+  usuarios.push({ id: usuarios.length + 1, ...novo });
+
+  await writeFile(caminho, JSON.stringify(usuarios, null, 2));
+  console.log("Usuário salvo sem bloquear o servidor!");
+}
+\end{lstlisting}
+
+\begin{caixaconceito}
+Cada \texttt{await} acima \emph{suspende} apenas aquela função — o event loop
+segue atendendo outras requisições. Escrever arquivos com
+\texttt{writeFile} em cada requisição é simples e funciona para dados
+pequenos; para produção, você usará um banco (capítulo~\ref{cap:postgresql}).
+O encurtador deste capítulo usa exatamente esse padrão para começar.
+\end{caixaconceito}
+
+\section{Servidor HTTP sem framework (para entender a base)}
+
+Antes de usar Fastify (capítulo~\ref{cap:http}), veja o que o Node faz
+sozinho — entender isso explica tudo o que os frameworks escondem:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Servidor HTTP com o módulo nativo node:http.}, label={list:node-http}]
+import { createServer } from "node:http";
+
+const servidor = createServer((req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  res.end(JSON.stringify({ mensagem: "Olá, mundo do Node!" }));
+});
+
+servidor.listen(3000, () => {
+  console.log("Servidor ouvindo em http://localhost:3000");
+});
+\end{lstlisting}
+
+\begin{caixadica}
+Rode com \texttt{node src/servidor.ts} e teste com
+\texttt{curl http://localhost:3000} (ou o navegador). Cada requisição chama
+sua função com \texttt{req} (o pedido) e \texttt{res} (a resposta) — é o
+par requisição--resposta do HTTP que você estudou no capítulo~\ref{cap:universo},
+agora do lado do servidor.
+\end{caixadica}
+
+\section{Processamento de dados: streams e utilitários}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Streams}: processar arquivos grandes \emph{em pedaços}, sem
+  carregar tudo na memória — essencial para uploads e logs;
+  \item \textbf{node:crypto}: hash, HMAC e geração segura de IDs (você usará
+  em senhas no capítulo~\ref{cap:auth});
+  \item \textbf{node:url}: parsing de URLs; \textbf{node:path}: manipulação de
+  caminhos entre sistemas;
+  \item \textbf{node:util}: \texttt{promisify}, \texttt{inspect} e utilitários de depuração.
+\end{itemize}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={crypto: hash e IDs seguros.}, label={list:node-crypto}]
+import { createHash, randomBytes } from "node:crypto";
+
+function hashSha256(texto: string): string {
+  return createHash("sha256").update(texto).digest("hex");
+}
+
+function gerarCodigo(tamanho = 6): string {
+  return randomBytes(tamanho).toString("base64url").slice(0, tamanho);
+}
+
+console.log(hashSha256("olá"));  // hash hexadecimal de 64 chars
+console.log(gerarCodigo(8));     // ex.: "aK3xQ9zT" (aleatório e seguro)
+\end{lstlisting}
+
+% ============================================================================
+\section{Projeto do capítulo: encurtador de URLs}
+\label{sec:projeto10}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} construir um encurtador de URLs como o bit.ly — sem
+framework, usando apenas Node nativo — que recebe uma URL longa via requisição
+HTTP e devolve um código curto.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item \texttt{POST /encurtar} recebe \texttt{\{ url \}}, valida, gera código curto e salva em \texttt{urls.json};
+  \item \texttt{GET /:codigo} redireciona (status 302) para a URL original;
+  \item Código curto gerado com algoritmo base62\index{base62} (alfabeto \texttt{a--z A--Z 0--9});
+  \item Tratamento de erros: URL inválida (400), código inexistente (404);
+  \item Contagem de acessos por URL (analytics simples);
+  \item \texttt{tsc --noEmit} limpo e código comentado.
+\end{itemize}
+\end{caixaprojeto}
+
+O algoritmo \textbf{base62} é o segredo dos encurtadores: converte o ID
+numérico da URL em uma string curta e legível:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Algoritmo base62: o coração do encurtador.}, label={list:node-base62}]
+const ALFABETO = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const BASE = ALFABETO.length; // 62
+
+function codificar(id: number): string {
+  let resto = id;
+  let saida = "";
+  do {
+    saida = ALFABETO[resto % BASE] + saida;
+    resto = Math.floor(resto / BASE);
+  } while (resto > 0);
+  return saida;
+}
+
+function decodificar(codigo: string): number {
+  let id = 0;
+  for (const char of codigo) {
+    id = id * BASE + ALFABETO.indexOf(char);
+  }
+  return id;
+}
+
+// O ID 1 vira "b", o ID 62 vira "ba", o ID 3844 vira "baa"...
+// Com 6 caracteres cabem 62^6 ~ 56 bilhões de URLs.
+\end{lstlisting}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Servidor do encurtador com rotas.}, label={list:node-servidor}]
+import { createServer } from "node:http";
+import { readFile, writeFile } from "node:fs/promises";
+import { URL } from "node:url";
+
+interface UrlCurta {
+  id: number;
+  codigo: string;
+  destino: string;
+  acessos: number;
+}
+
+const ARQUIVO = "./urls.json";
+
+async function carregarUrls(): Promise<UrlCurta[]> {
+  try {
+    return JSON.parse(await readFile(ARQUIVO, "utf8")) as UrlCurta[];
+  } catch {
+    return [];
+  }
+}
+
+async function salvarUrls(urls: UrlCurta[]) {
+  await writeFile(ARQUIVO, JSON.stringify(urls, null, 2));
+}
+
+const servidor = createServer(async (req, res) => {
+  const url = new URL(req.url ?? "/", "http://localhost:3000");
+  const urls = await carregarUrls();
+
+  if (req.method === "POST" && url.pathname === "/encurtar") {
+    let corpo = "";
+    for await (const pedaco of req) corpo += pedaco;
+
+    const { url: destino } = JSON.parse(corpo || "{}") as { url?: string };
+    try {
+      const valida = new URL(destino!);
+      if (!["http:", "https:"].includes(valida.protocol)) throw new Error();
+    } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ erro: "URL inválida" }));
+      return;
+    }
+
+    const nova: UrlCurta = {
+      id: urls.length + 1,
+      codigo: codificar(urls.length + 1),
+      destino: destino!,
+      acessos: 0,
+    };
+    urls.push(nova);
+    await salvarUrls(urls);
+
+    res.writeHead(201, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ codigo: nova.codigo, url: `/api/${nova.codigo}` }));
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname.startsWith("/")) {
+    const codigo = url.pathname.slice(1);
+    const alvo = urls.find((u) => u.codigo === codigo);
+    if (!alvo) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ erro: "Código não encontrado" }));
+      return;
+    }
+    alvo.acessos++;
+    await salvarUrls(urls);
+    res.writeHead(302, { Location: alvo.destino });
+    res.end();
+    return;
+  }
+
+  res.writeHead(404, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ erro: "Rota não encontrada" }));
+});
+
+servidor.listen(3000, () => console.log("Encurtador em http://localhost:3000"));
+\end{lstlisting}
+
+\begin{caixadica}
+Esse tipo de algoritmo ``de mercado'' — conversão entre bases, IDs públicos,
+códigos de convite e cupons — é o que aparece em entrevistas e sistemas
+reais. E o padrão \texttt{for await (const pedaco of req)} mostra streams\index{streams} na
+prática: o corpo chega em pedaços, sem carregar tudo na memória.
+\end{caixadica}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Explique o event loop com suas palavras: por que o Node não ``trava'' esperando um arquivo?
+  \item O que significa bloquear o event loop? Dê um exemplo de código que faz isso.
+  \item Escreva um script que lê um CSV, filtra linhas e escreve um novo arquivo usando \texttt{node:fs/promises}.
+  \item Para que serve \texttt{node:crypto}? Gere um hash SHA-256 de uma string.
+  \item Monte um \texttt{package.json} com \texttt{type: "module"} e scripts \texttt{dev} e \texttt{check}.
+  \item O que faz \texttt{node --watch}?
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Base62 reversível}: implemente \texttt{codificar(id)} e \texttt{decodificar(codigo)} e verifique ida e volta para 10.000 IDs.
+  \item \textbf{Validação de URL}: escreva uma função que só aceita URLs http/https válidas (use \texttt{node:url}) e retorna erro amigável para o resto.
+  \item \textbf{Analytics}: adicione \texttt{GET /estatisticas} retornando as URLs mais acessadas ordenadas.
+  \item \textbf{Redirecionamento amigável}: sirva uma página HTML simples para o código não encontrado, em vez de JSON.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Concorrência:} rode 1.000 requisições simultâneas ao seu servidor (com \texttt{AbortController} e \texttt{Promise.all}) e meça o tempo; explique como o event loop suporta isso.
+  \item \textbf{Streams:} processe um arquivo de 1 GB linha a linha com \texttt{readline} sem estourar a memória, e compare o consumo com \texttt{readFile}.
+  \item \textbf{Worker threads:} implemente o cálculo de números primos grandes em uma worker thread e compare com a execução na thread principal.
+  \item \textbf{Segurança básica:} adicione rate limiting simples (máx. 10 requisições/min por IP) e proteja contra \texttt{path traversal} ao ler arquivos.
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \texttt{readFile} em arquivos gigantes (estoura a memória — use streams);
+  \item Esquecer \texttt{await} e receber \texttt{Promise} indefinidamente;
+  \item Bloquear o event loop com \texttt{for} pesado dentro de um handler HTTP;
+  \item Ignorar tratamento de erros em \texttt{fs} (um arquivo ausente derruba o processo);
+  \item Armazenar senhas/segredos em código (capítulo~\ref{cap:seguranca} trata isso a fundo);
+  \item \texttt{JSON.parse} sem \texttt{try/catch} em dados que vêm de arquivo.
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Node.js = JavaScript no servidor, single thread com event loop e I/O assíncrono;
+  \item \texttt{node:fs}, \texttt{node:http}, \texttt{node:crypto} cobrem o essencial sem framework;
+  \item ES Modules e TypeScript nativo são o padrão a partir do Node 24;
+  \item Nunca bloqueie o event loop; use streams para arquivos grandes;
+  \item base62 é o algoritmo dos encurtadores — e um clássico de entrevistas;
+  \item Projeto entregue: encurtador de URLs com persistência e analytics.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Documentação oficial do Node.js: \url{https://nodejs.org/docs/latest/api/}
+  \item Guia oficial de TypeScript no Node: \url{https://nodejs.org/en/learn/typescript}
+  \item Node.js — event loop (docs oficiais): \url{https://nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick}
+  \item npm Docs: \url{https://docs.npmjs.com}
+\end{itemize}

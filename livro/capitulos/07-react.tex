@@ -1,0 +1,471 @@
+% ============================================================================
+% CAPÍTULO 7 — React\index{React}
+% Texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{React: Componentes e Interfaces Interativas}
+\label{cap:react}
+
+\begin{caixaconceito}
+\textbf{React} é a biblioteca de interfaces mais usada do mundo
+\cite{so2025,stateofjs2024}: constrói a interface como uma \emph{função do
+estado} — dado entra, UI sai. O React 19 \cite{react19} estabilizou Server
+Components e Actions, transformando a biblioteca em uma ferramenta full stack.
+\end{caixaconceito}
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Pensar em interface como uma \emph{árvore de componentes};
+  \item Criar componentes\index{componentes} com JSX\index{JSX}, props\index{props} e composição;
+  \item Gerenciar estado\index{estado} com \texttt{useState} e efeitos com \texttt{useEffect};
+  \item Renderizar listas, lidar com eventos e controlar formulários;
+  \item Elevar estado (\emph{lifting state up}) e criar hooks\index{hooks} próprios;
+  \item Aplicar as regras dos hooks e entender o papel do React Compiler;
+  \item Entregar o projeto do capítulo: um quadro Kanban de tarefas.
+\end{objetivos}
+
+\section{Por que React? O modelo mental}
+
+Antes do React, o JavaScript manipulava o DOM ``na mão'': a cada mudança de
+dado, você escrevia código para encontrar o elemento certo e atualizá-lo. Com
+três ou quatro estados interagindo, esse código vira um emaranhado impossível
+de prever.
+
+O React inverte o jogo: você descreve \emph{como a tela deve ser para cada
+estado}, e o React cuida de levar o DOM até lá. Quando o estado muda, a função
+roda de novo e a interface ``recalcula''. Isso é chamado de
+\emph{programação declarativa}: você declara o resultado, não os passos.
+
+\begin{caixaconceito}
+\textbf{Declarativo vs imperativo}: imperativo diz ``crie um elemento, insira
+aqui, mude a classe para lá'' (passos); declarativo diz ``se o estado é X, a
+tela é assim'' (resultado). O React é declarativo — e o \emph{re-render} é o
+mecanismo que mantém a tela sincronizada com o estado.
+\end{caixaconceito}
+
+\section{Componentes e JSX}
+
+Uma página React é uma árvore de componentes — funções que recebem
+\textbf{props} (entrada) e retornam \textbf{JSX} (saída). Componentes começam
+com letra maiúscula, são declarativos e reagem a mudanças de estado.
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Componente com props tipadas e composição.}, label={list:react-componente}]
+interface CartaoProps {
+  titulo: string;
+  concluida: boolean;
+  onAlternar: () => void;
+}
+
+function Cartao({ titulo, concluida, onAlternar }: CartaoProps) {
+  return (
+    <article className={concluida ? "cartao concluido" : "cartao"}>
+      <h3>{titulo}</h3>
+      <input
+        type="checkbox"
+        checked={concluida}
+        onChange={onAlternar}
+        aria-label={`Marcar ${titulo} como concluída`}
+      />
+    </article>
+  );
+}
+
+export function ListaDeTarefas() {
+  const tarefas = ["Estudar React", "Praticar TypeScript"];
+
+  return (
+    <div>
+      {tarefas.map((titulo) => (
+        <Cartao
+          key={titulo}
+          titulo={titulo}
+          concluida={false}
+          onAlternar={() => console.log("alternou:", titulo)}
+        />
+      ))}
+    </div>
+  );
+}
+\end{lstlisting}
+
+\begin{caixadica}
+JSX é \emph{JavaScript com aparência de HTML}: chaves \texttt{\{\}} ``escapam''
+de volta para JavaScript. A regra do React é ``pouca magia'': quase tudo o que
+você vê no JSX é JavaScript de verdade (\texttt{map}, ternários,
+\texttt{\&\&}).
+\end{caixadica}
+
+\begin{caixaconceito}
+\textbf{Props} são a ``entrada'' do componente: dados e funções passados de
+pai para filho, \emph{somente leitura}. Se um componente precisa mudar algo, o
+pai passa uma função (\texttt{onAlternar}) que o filho chama. Dados sobem,
+eventos descem — é o fluxo unidirecional do React.
+\end{caixaconceito}
+
+\section{Estado e eventos: \texttt{useState}}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Estado, eventos e formulários controlados.}, label={list:react-estado}]
+import { useState } from "react";
+
+export function Contador() {
+  const [contagem, setContagem] = useState(0);
+
+  return (
+    <button onClick={() => setContagem((c) => c + 1)}>
+      Cliques: {contagem}
+    </button>
+  );
+}
+
+export function Formulario() {
+  const [nome, setNome] = useState("");
+
+  return (
+    <input
+      value={nome}
+      onChange={(e) => setNome(e.target.value)}
+      placeholder="Seu nome"
+    />
+  );
+}
+\end{lstlisting}
+
+\begin{caixaconceito}
+Estado é \emph{imutável}: você nunca altera o valor, sempre o \emph{substitui}
+por um novo via \texttt{setEstado}. Por isso, use a forma funcional
+\texttt{setContagem((c) => c + 1)} quando o novo valor depende do anterior —
+ela é imune a atualizações em lote e a closures defasadas.
+\end{caixaconceito}
+
+\begin{caixaarmadilha}
+React agrupa atualizações de estado em lote. Se você escrever
+\texttt{setContagem(contagem + 1)} três vezes seguidas, \texttt{contagem}
+ainda vale o valor antigo nas três chamadas — o resultado é \texttt{+1}, não
+\texttt{+3}. A forma funcional \texttt{(c) => c + 1} resolve: cada chamada
+recebe o valor mais recente.
+\end{caixaarmadilha}
+
+\section{Listas e a chave correta}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Renderização de listas com keys estáveis.}, label={list:react-lista}]
+interface Tarefa {
+  id: number;
+  titulo: string;
+  concluida: boolean;
+}
+
+const tarefas: Tarefa[] = [
+  { id: 1, titulo: "Estudar React", concluida: false },
+  { id: 2, titulo: "Praticar TypeScript", concluida: true },
+];
+
+export function Lista() {
+  return (
+    <ul>
+      {tarefas.map((tarefa) => (
+        <li key={tarefa.id}>
+          <span style={{ textDecoration: tarefa.concluida ? "line-through" : "none" }}>
+            {tarefa.titulo}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+\end{lstlisting}
+
+\begin{caixadica}
+A \texttt{key} deve ser um identificador \emph{estável e único} vindo dos
+dados (\texttt{id}), nunca o índice do \texttt{map} — a menos que a lista seja
+estática e nunca reordene. O React usa a \texttt{key} para saber o que mudou,
+foi inserido ou removido; uma key\index{key} errada causa bugs clássicos de estado
+(como o campo de um input ``seguindo'' o item errado ao reordenar).
+\end{caixadica}
+
+\section{Formulários controlados}
+
+Um \emph{formulário controlado} tem o estado do React como fonte da verdade:
+o \texttt{value} vem do estado e o \texttt{onChange} atualiza. É previsível,
+fácil de validar e de integrar com APIs:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Formulário controlado com validação simples.},
+  label={list:react-formulario}]
+import { useState, type FormEvent } from "react";
+
+export function FormularioDeTarefa({ aoCriar }: { aoCriar: (titulo: string) => void }) {
+  const [titulo, setTitulo] = useState("");
+  const [erro, setErro] = useState("");
+
+  function aoEnviar(evento: FormEvent) {
+    evento.preventDefault();
+    if (titulo.trim().length < 3) {
+      setErro("O título precisa de pelo menos 3 caracteres");
+      return;
+    }
+    aoCriar(titulo.trim());
+    setTitulo("");
+    setErro("");
+  }
+
+  return (
+    <form onSubmit={aoEnviar}>
+      <label htmlFor="titulo">Nova tarefa</label>
+      <input
+        id="titulo"
+        value={titulo}
+        onChange={(e) => setTitulo(e.target.value)}
+        placeholder="Ex.: Estudar hooks"
+      />
+      {erro && <p role="alert">{erro}</p>}
+      <button type="submit">Adicionar</button>
+    </form>
+  );
+}
+\end{lstlisting}
+
+\begin{caixaconceito}
+No React, \texttt{htmlFor} substitui \texttt{for} do HTML (porque \texttt{for}
+é palavra reservada de JavaScript). Tudo o que você aprendeu sobre
+acessibilidade no capítulo~\ref{cap:html} vale aqui: labels associados,
+\texttt{role="alert"} para erros e botões de verdade (\texttt{<button>}).
+\end{caixaconceito}
+
+\section{Efeitos: \texttt{useEffect} e o ciclo de vida}
+
+Componentes têm um ciclo: \emph{montar}, \emph{atualizar} e \emph{desmontar}.
+O \texttt{useEffect} conecta seu código a essas fases — o lugar para busca de
+dados, timers e assinaturas:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Efeitos: busca de dados e limpeza.}, label={list:react-efeito}]
+import { useEffect, useState } from "react";
+
+interface Usuario {
+  id: number;
+  nome: string;
+}
+
+export function PerfilDoUsuario({ id }: { id: number }) {
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    let ativo = true; // evita atualizar estado após desmontar
+
+    setCarregando(true);
+    fetch(`/api/usuarios/${id}`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((dados: Usuario) => {
+        if (ativo) setUsuario(dados);
+      })
+      .catch(() => {
+        if (ativo) setUsuario(null);
+      })
+      .finally(() => {
+        if (ativo) setCarregando(false);
+      });
+
+    return () => {
+      ativo = false; // limpeza ao desmontar ou quando o id muda
+    };
+  }, [id]);
+
+  if (carregando) return <p>Carregando...</p>;
+  if (!usuario) return <p>Usuário não encontrado</p>;
+  return <p>Olá, {usuario.nome}</p>;
+}
+\end{lstlisting}
+
+\begin{caixaarmadilha}
+A \emph{dependência} do efeito (\texttt{[id]}) decide quando ele roda.
+Esquecê-la (array vazio quando deveria ter \texttt{id}) causa dados defasados;
+colocar objetos/arrays criados no render causa \emph{loop infinito} (o efeito
+roda, muda estado, re-render, novo objeto, efeito roda de novo...). As duas
+dores de cabeça mais famosas do React têm a mesma cura: dependências mínimas e
+estáveis.
+\end{caixaarmadilha}
+
+\begin{caixadica}
+No React 19, o \textbf{React Compiler} automatiza parte dessa memorização: ele
+otimiza re-renders automaticamente. Mesmo assim, entenda o modelo manual
+primeiro — é ele que explica o que o compilador faz.
+\end{caixadica}
+
+\section{Elevação de estado e hooks customizados}
+
+Quando dois componentes precisam \emph{compartilhar} o mesmo estado, ele
+\emph{sobe} para o ancestral comum e desce via props (lifting state up\index{lifting state up}). Quando
+uma lógica de estado se repete em vários lugares, ela vira um \emph{hook
+próprio}:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Hook customizado reutilizável.}, label={list:react-hook}]
+import { useCallback, useEffect, useState } from "react";
+
+// Hook próprio: estado sincronizado com localStorage
+export function useLocalStorage<T>(chave: string, inicial: T) {
+  const [valor, setValor] = useState<T>(() => {
+    try {
+      const salvo = localStorage.getItem(chave);
+      return salvo ? (JSON.parse(salvo) as T) : inicial;
+    } catch {
+      return inicial;
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(chave, JSON.stringify(valor));
+  }, [chave, valor]);
+
+  const definir = useCallback((novo: T | ((v: T) => T)) => {
+    setValor((atual) =>
+      typeof novo === "function" ? (novo as (v: T) => T)(atual) : novo,
+    );
+  }, []);
+
+  return [valor, definir] as const;
+}
+
+// Uso em qualquer componente:
+// const [tarefas, setTarefas] = useLocalStorage<Tarefa[]>("kanban:tarefas", []);
+\end{lstlisting}
+
+\begin{caixaconceito}
+Hooks são funções que começam com \texttt{use} e \emph{encapsulam estado}.
+Eles seguem duas regras de ouro: (1) só chame hooks no topo do componente ou
+de outro hook — nunca dentro de \texttt{if}, loops ou funções aninhadas; (2)
+só chame hooks de componentes React ou de outros hooks. O React depende da
+\emph{ordem constante} das chamadas para associar estado a cada hook.
+\end{caixaconceito}
+
+\section{Composição: o padrão de design do React}
+
+Composição supera herança: em vez de ``herdar de um componente base'', você
+\emph{compõe} componentes dentro de outros, passando o que quiser via props —
+inclusive outros componentes (\texttt{children}):
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Composição com children.}, label={list:react-composicao}]
+import type { ReactNode } from "react";
+
+interface CaixaProps {
+  titulo: string;
+  acoes?: ReactNode;
+  children: ReactNode;
+}
+
+export function Caixa({ titulo, acoes, children }: CaixaProps) {
+  return (
+    <section className="caixa">
+      <header>
+        <h2>{titulo}</h2>
+        {acoes}
+      </header>
+      <div>{children}</div>
+    </section>
+  );
+}
+
+// Uso: qualquer conteúdo entra como children
+<Caixa titulo="Tarefas" acoes={<button>+</button>}>
+  <ul>{/* itens */}</ul>
+</Caixa>
+\end{lstlisting}
+
+% ============================================================================
+\section{Projeto do capítulo: quadro Kanban de tarefas}
+\label{sec:projeto7}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} construir um quadro Kanban com três colunas (A fazer, Em
+andamento, Concluído) usando React + TypeScript, sem backend.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Criar, mover e excluir tarefas com estado tipado;
+  \item Colunas com contagem de itens e destaque visual;
+  \item Formulário controlado para nova tarefa com validação mínima;
+  \item Persistência em \texttt{localStorage} via hook próprio
+  (\texttt{useLocalStorage});
+  \item Componentes pequenos e reutilizáveis (\texttt{Tarefa}, \texttt{Coluna}, \texttt{Quadro});
+  \item Bootstrap com Vite: \texttt{npm create vite@latest kanban -- --template react-ts};
+  \item Acessível: botões reais, labels e \texttt{role="alert"} nos erros.
+\end{itemize}
+\end{caixaprojeto}
+
+\begin{caixadica}
+O estado do Kanban é um ótimo exercício de modelagem: uma lista de tarefas com
+\texttt{id}, \texttt{titulo}, \texttt{coluna} e \texttt{ordem}. Mover uma
+tarefa é apenas \emph{substituir} o estado com a coluna atualizada (lembre-se
+da imutabilidade!). Neste capítulo o estado é local ao navegador; no
+capítulo~\ref{cap:fullstack}, o mesmo conceito vira um produto real com banco
+de dados e autenticação.
+\end{caixadica}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item O que são props e qual a diferença entre props e estado?
+  \item Por que o estado deve ser atualizado de forma imutável?
+  \item Escreva um componente \texttt{Lista} que recebe \texttt{itens: string[]} e renderiza uma \texttt{ul} com \texttt{key} correta.
+  \item Qual a função do array de dependências do \texttt{useEffect}? Dê um exemplo de loop infinito.
+  \item Explique \emph{lifting state up} com um exemplo de dois componentes que compartilham estado.
+  \item Quais são as duas regras dos hooks e por que elas existem?
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Contador com histórico}: um contador que guarda o histórico de cliques em um array e permite desfazer (undo).
+  \item \textbf{Busca com debounce}: campo de busca que filtra uma lista com debounce de 300ms (reutilize a ideia do capítulo~\ref{cap:js}).
+  \item \textbf{Tema claro/escuro}: hook \texttt{useTema} que alterna classes CSS e persiste no \texttt{localStorage}.
+  \item \textbf{Drag and drop}: permita arrastar tarefas entre colunas (HTML5 drag \& drop) preservando a ordem.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Reconciliação}: explique o que acontece no DOM quando o estado muda e por que a \texttt{key} correta evita bugs de estado (input que perde foco, lista reordenada).
+  \item \textbf{Memorização consciente}: use \texttt{React.memo}, \texttt{useMemo} e \texttt{useCallback} em uma lista grande, meça com o Profiler do React DevTools e explique quando cada um ajuda (e quando atrapalha).
+  \item \textbf{Padrões avançados}: implemente \emph{compound components} em um componente \texttt{Tabs} (ex.: \texttt{Tabs.List}, \texttt{Tabs.Panel}) e explique o trade-off vs.\ props simples.
+  \item \textbf{Suspense e Actions}: com o React 19, use \texttt{useActionState} e \texttt{useOptimistic} para um formulário que atualiza a UI antes da confirmação do servidor (com mock).
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Mutar estado diretamente (\texttt{arr.push}) em vez de criar um novo array;
+  \item \texttt{useEffect} com dependências instáveis (loops infinitos);
+  \item Esquecer \texttt{key} ou usar o índice em listas dinâmicas;
+  \item Chamar hooks condicionalmente ou dentro de loops (regra dos hooks);
+  \item Componentes gigantes de 500 linhas — quebre em componentes pequenos e reutilizáveis;
+  \item Esquecer \texttt{evento.preventDefault()} no submit (a página recarrega).
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item UI = função do estado; componentes recebem props e retornam JSX;
+  \item \texttt{useState} para estado, \texttt{useEffect} para efeitos;
+  \item Estado é imutável; atualizações em lote exigem a forma funcional;
+  \item \texttt{key} estável em listas; formulários controlados para previsibilidade;
+  \item Estado compartilhado sobe para o ancestral (lifting state up);
+  \item Hooks customizados encapsulam lógica reutilizável (ex.: \texttt{useLocalStorage});
+  \item Projeto entregue: Kanban funcional e persistente.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Documentação oficial do React: \url{https://react.dev}
+  \item React 19 (anúncio oficial): \url{https://react.dev/blog/2024/12/05/react-19}
+  \item Curso oficial \emph{Learn React}: \url{https://react.dev/learn}
+  \item Regras dos Hooks (ESLint): \url{https://react.dev/learn/rules-of-hooks}
+  \item React DevTools: \url{https://react.dev/learn/react-developer-tools}
+\end{itemize}

@@ -1,0 +1,293 @@
+% ============================================================================
+% CAPÍTULO 14 — Autenticação\index{autenticação} e autorização\index{autorização}
+% Texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{Autenticação e Autorização}
+\label{cap:auth}
+
+\begin{caixaconceito}
+\textbf{Autenticação} responde ``quem é você?'' (prova de identidade);
+\textbf{autorização} responde ``o que você pode fazer?'' (permissões). Juntas,
+são a fronteira de segurança de qualquer aplicação — e o item
+\textbf{A07: Authentication Failures} do OWASP Top 10:2025 \cite{owasp2025}.
+\end{caixaconceito}
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Armazenar senhas com hash seguro (argon2\index{argon2}) e \emph{salt};
+  \item Implementar sessões e JWT\index{JWT} com refresh tokens;
+  \item Aplicar autorização por papel (RBAC\index{RBAC}) em rotas de uma API;
+  \item Proteger contra os ataques mais comuns de autenticação;
+  \item Integrar provedores OAuth (Google/GitHub) com Auth.js;
+  \item Entregar o projeto do capítulo: um sistema de autenticação completo.
+\end{objetivos}
+
+\section{Os fundamentos: hash, salt e o que nunca fazer}
+
+Nunca armazene senhas em texto puro — nem ``criptografadas'' de forma
+reversível. Se o banco vazar (e algum dia ele vai ser alvo), as senhas dos
+usuários não podem ser recuperadas. O correto é \textbf{hash + salt} com um
+algoritmo lento e resistente a força bruta:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Hash seguro de senha com argon2.}, label={list:auth-hash}]
+import argon2 from "argon2";
+
+// Cadastro
+const hash = await argon2.hash(senhaPlana); // argon2 gera o salt automaticamente
+
+// Login
+const valido = await argon2.verify(hash, senhaDigitada);
+if (!valido) throw new Error("Credenciais inválidas");
+\end{lstlisting}
+
+\begin{caixaconceito}
+\textbf{Hash} é unidirecional (não dá para ``desfazer''). \textbf{Salt} é um
+valor aleatório por usuário que impede ataques de tabela arco-íris e faz
+senhas iguais gerarem hashes diferentes. \textbf{Argon2} é o vencedor do
+Password Hashing Competition e a recomendação atual; \texttt{bcrypt} é a
+alternativa mais difundida. Algoritmos rápidos (MD5, SHA-256 puro) são
+\emph{proibidos} para senhas — força bruta ficaria barata demais.
+\end{caixaconceito}
+
+\section{Sessões vs JWT: o trade-off fundamental}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Sessões}: o servidor guarda a sessão (memória/Redis/banco) e o
+  cliente guarda só um cookie opaco. Revogação \emph{imediata} — você pode
+  derrubar uma sessão na hora. Padrão recomendado para a maioria dos produtos;
+  \item \textbf{JWT}: token assinado com claims embutidos, \emph{stateless}.
+  Rápido de validar (sem consulta ao banco), mas revogar exige lista negra.
+  Use com \emph{access token curto} (15 min) + \emph{refresh token} (7 dias) rotativo.
+\end{itemize}
+
+\begin{caixaconceito}
+A regra prática: \emph{stateless é ótimo para escala, stateful é ótimo para
+controle}. JWT brilha em APIs distribuídas e mobile; sessão brilha em controle
+fino de revogação. Muitos sistemas maduros usam sessão no banco/Redis mesmo
+com JWT por fora — entenda o trade-off, não decore ``o certo''.
+\end{caixaconceito}
+
+\section{Implementando JWT com refresh rotativo}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Emissão de tokens com refresh.}, label={list:auth-jwt}]
+import { sign, verify } from "jsonwebtoken";
+import { randomBytes } from "node:crypto";
+
+function gerarTokens(usuario: { id: string; papel: string }) {
+  const accessToken = sign(
+    { sub: usuario.id, papel: usuario.papel },
+    process.env.JWT_SECRET,
+    { expiresIn: "15m", issuer: "authhub" },
+  );
+
+  const refreshToken = randomBytes(32).toString("base64url");
+  // Guarde o refresh token HASHED no banco, com expiração e vínculo ao usuário
+  return { accessToken, refreshToken };
+}
+
+// Rotação: cada uso do refresh gera um NOVO par e invalida o anterior
+async function renovar(refreshToken: string) {
+  const registro = await prisma.refreshToken.findUnique({
+    where: { tokenHash: hash(refreshToken) },
+  });
+  if (!registro || registro.expiraEm < new Date()) {
+    throw new Error("Refresh token inválido ou expirado");
+  }
+  await prisma.refreshToken.delete({ where: { id: registro.id } });
+  return gerarTokens(registro.usuario);
+}
+\end{lstlisting}
+
+\begin{caixaconceito}
+O \textbf{refresh rotativo} é a prática recomendada: cada uso do refresh token\index{refresh token}
+gera um novo par e \emph{invalida o anterior}. Se um atacante rouba um refresh
+token, ele não consegue reusá-lo indefinidamente — e um uso duplicado (token
+já rotacionado) é um sinal claro de roubo.
+\end{caixaconceito}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Middleware de autenticação e autorização.}, label={list:auth-rbac}]
+type Papel = "admin" | "editor" | "leitor";
+
+const PERMISSOES: Record<Papel, string[]> = {
+  admin: ["criar", "editar", "excluir", "gerenciar_usuarios"],
+  editor: ["criar", "editar"],
+  leitor: ["ler"],
+};
+
+function exigeAuth(req, reply, done) {
+  const token = req.headers.authorization?.replace("Bearer ", "");
+  try {
+    req.usuario = verify(token!, process.env.JWT_SECRET, {
+      issuer: "authhub",
+    });
+    done();
+  } catch {
+    reply.code(401).send({ erro: "Token inválido ou expirado" });
+  }
+}
+
+function exigePermissao(acao: string) {
+  return (req, reply, done) => {
+    const papel: Papel = req.usuario.papel;
+    if (!PERMISSOES[papel].includes(acao)) {
+      return reply.code(403).send({ erro: "Sem permissão" });
+    }
+    done();
+  };
+}
+
+// Uso nas rotas
+app.post("/posts", exigeAuth, exigePermissao("criar"), criarPost);
+app.delete("/posts/:id", exigeAuth, exigePermissao("excluir"), excluirPost);
+\end{lstlisting}
+
+\begin{caixaconceito}
+\textbf{RBAC} (Role-Based Access Control) é o modelo de autorização mais
+comum: papéis agrupam permissões. Variações: permissões por recurso
+(ownership — ``só o dono edita'') e ABAC (atributos). A regra de ouro da
+segurança: \textbf{default deny} — negue por padrão, libere explicitamente.
+\end{caixaconceito}
+
+\begin{caixaarmadilha}
+Nunca coloque \texttt{JWT\_SECRET} no código-fonte. Use \texttt{.env}
+(não versionado) — e, em produção, um gerenciador de segredos (capítulo~\ref{cap:cloud}).
+Um secret vazado no GitHub já foi a causa de incontáveis invasões.
+\end{caixaarmadilha}
+
+\section{Headers de segurança e cookies}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Cookies}: \texttt{HttpOnly} (JS não lê), \texttt{Secure}
+  (só HTTPS) e \texttt{SameSite=Lax/Strict} (mitiga CSRF);
+  \item \textbf{Tokens no localStorage}: vulneráveis a XSS — prefira cookies
+  \texttt{HttpOnly} quando possível;
+  \item \textbf{helmet}: headers de segurança prontos (capítulo~\ref{cap:seguranca});
+  \item \textbf{Rate limit} no login: bloqueia força bruta (5 tentativas/min
+  por IP, com janela deslizante no Redis — capítulo~\ref{cap:arquitetura});
+  \item \textbf{Mensagens genéricas}: ``credenciais inválidas'' — nunca revele
+  se o e-mail existe.
+\end{itemize}
+
+\section{OAuth 2.0 e login social com Auth.js}
+
+Para login com Google/GitHub, o padrão é o \textbf{OAuth 2.0} + OpenID Connect
+(OIDC). A forma mais prática no ecossistema Next.js é o \textbf{Auth.js}
+(antigo NextAuth):
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Login social com Auth.js.}, label={list:auth-oauth}]
+import NextAuth from "next-auth";
+import GitHub from "next-auth/providers/github";
+
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  providers: [GitHub],
+  session: { strategy: "jwt" },
+  callbacks: {
+    async session({ session, token }) {
+      session.user.id = token.sub as string;
+      return session;
+    },
+  },
+});
+\end{lstlisting}
+
+\begin{caixadica}
+Entender OAuth 2.0 conceitualmente (authorization code flow, scopes,
+redirect URIs) é pergunta clássica de entrevista. O fluxo: usuário autoriza no
+provedor $\rightarrow$ provedor devolve um \emph{code} $\rightarrow$ seu app
+troca o code por tokens $\rightarrow$ você valida o ID token (OIDC). Não
+decore — \emph{desenhe} o fluxo até conseguir explicá-lo em 60 segundos.
+\end{caixadica}
+
+% ============================================================================
+\section{Projeto do capítulo: sistema de autenticação completo}
+\label{sec:projeto14}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} construir o sistema de autenticação \emph{AuthHub} — uma
+API completa com cadastro, login, refresh token, logout e RBAC.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Cadastro com validação (e-mail único, senha forte) e hash argon2;
+  \item Login com JWT (access 15min + refresh 7 dias rotativo);
+  \item Logout revogando o refresh token (lista negra no banco);
+  \item Rotas protegidas com middleware \texttt{exigeAuth};
+  \item RBAC com 3 papéis e rotas de admin protegidas (\texttt{403} correto);
+  \item Rate limit\index{rate limit} no login (5 tentativas/min por IP) contra brute force;
+  \item Headers de segurança (\texttt{helmet}) e \texttt{httpOnly} nos cookies;
+  \item Testes automatizados cobrindo os fluxos felizes e os ataques (capítulo~\ref{cap:testes}).
+\end{itemize}
+\end{caixaprojeto}
+
+\begin{caixadica}
+O AuthHub é o ``esqueleto de segurança'' de qualquer produto: o SkillHub
+(capítulo~\ref{cap:fullstack}) vai usá-lo como base. Teste \emph{os ataques}:
+força bruta, token expirado, refresh reusado, \texttt{403} em rota de admin —
+é isso que diferencia auth ``que funciona'' de auth ``que protege''.
+\end{caixadica}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Qual a diferença entre autenticação e autorização? Dê um exemplo.
+  \item Por que hash + salt e não ``criptografia'' de senha?
+  \item Explique a diferença entre sessão e JWT, com uma vantagem de cada.
+  \item O que significam \texttt{401} e \texttt{403} no contexto de auth?
+  \item Por que o refresh token é rotativo (cada uso gera um novo)?
+  \item O que faz \texttt{HttpOnly} em um cookie?
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Recuperação de senha}: implemente o fluxo ``esqueci minha senha'' com token de redefinição de 15 min e hash novo.
+  \item \textbf{E-mail de confirmação}: adicione verificação de e-mail com token de confirmação antes de liberar o login.
+  \item \textbf{Ownership}: implemente a regra ``apenas o dono (ou admin) edita/exclui um recurso'' e teste os três casos.
+  \item \textbf{Rate limit real}: implemente a janela deslizante com contagem por IP e e-mail, e teste com 20 tentativas.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Segurança de tokens}: explique e previna os ataques: token roubado (XSS $\rightarrow$ \texttt{httpOnly}), replay, e \texttt{algorithm confusion} (force \texttt{HS256} explícito).
+  \item \textbf{2FA/TOTP}: implemente autenticação de dois fatores com TOTP (RFC 6238) usando \texttt{otplib} + QR code.
+  \item \textbf{Sessão distribuída}: troque sessões em memória por Redis (capítulo~\ref{cap:arquitetura}) e explique por que isso escala horizontalmente.
+  \item \textbf{Auditoria}: registre em log (com IP e horário) todos os eventos de auth e explique como isso atende ao \texttt{A09} do OWASP.
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Mensagem de erro que revela se o e-mail existe (\texttt{``e-mail não cadastrado''} vs \texttt{``credenciais inválidas''});
+  \item Token sem expiração ou com secret fraco/versionado;
+  \item Permitir \texttt{403} vs \texttt{401} errados (vaza informação);
+  \item Rate limit só no login e esquecer nos endpoints sensíveis;
+  \item Armazenar tokens no \texttt{localStorage} (vulnerável a XSS — prefira cookies \texttt{httpOnly} + \texttt{Secure});
+  \item Verificar autorização apenas no frontend (todo request pode ser forjado).
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Autenticação (quem é) $\neq$ autorização (o que pode);
+  \item Senhas: argon2 com salt, nunca texto puro;
+  \item Sessões ou JWT curto + refresh rotativo — conheça os trade-offs;
+  \item RBAC com default deny e \texttt{403} correto;
+  \item Cookies \texttt{HttpOnly}/\texttt{Secure}, rate limit e mensagens genéricas;
+  \item OAuth 2.0/OIDC para login social com Auth.js;
+  \item Projeto entregue: AuthHub com testes contra ataques.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item OWASP — Authentication Cheat Sheet: \url{https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html}
+  \item OWASP — Password Storage Cheat Sheet: \url{https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html}
+  \item Documentação do Auth.js: \url{https://authjs.dev}
+  \item RFC 7519 (JWT): \url{https://datatracker.ietf.org/doc/html/rfc7519}
+  \item OAuth 2.0 (RFC 6749): \url{https://datatracker.ietf.org/doc/html/rfc6749}
+\end{itemize}

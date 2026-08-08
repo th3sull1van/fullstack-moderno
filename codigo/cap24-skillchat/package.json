@@ -1,0 +1,17 @@
+{
+  "name": "cap24-skillchat",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "SkillChat: assistente RAG de referência (capítulo 24 do livro)",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsx src/index.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0",
+    "vitest": "^4.0.0"
+  }
+}

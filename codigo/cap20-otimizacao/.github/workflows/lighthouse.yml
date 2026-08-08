@@ -1,0 +1,47 @@
+name: performance
+
+# Orçamento de performance no CI: cada PR deve manter as Core Web Vitals
+# dentro do alvo (capítulo 20). Sem isso, a performance regride em silêncio.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: codigo/cap15-skillhub/package-lock.json
+
+      - name: Instalar e preparar o banco
+        working-directory: codigo/cap15-skillhub
+        run: |
+          npm ci
+          cp .env.ci .env
+          npx prisma migrate deploy
+          npx prisma db seed
+
+      - name: Subir o app de produção (build)
+        working-directory: codigo/cap15-skillhub
+        run: |
+          npm run build
+          nohup npm run start > /tmp/app.log 2>&1 &
+          npx wait-on http://localhost:3000 -t 60000
+
+      - name: Rodar Lighthouse CI com orçamentos
+        working-directory: codigo/cap20-otimizacao
+        run: |
+          npx --yes @lhci/cli@0.14.x autorun --config=lighthouserc.json
+
+      - name: Anexar relatório
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse
+          path: codigo/cap20-otimizacao/.lighthouseci

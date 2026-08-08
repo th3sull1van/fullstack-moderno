@@ -1,0 +1,16 @@
+Creative Commons Attribution 4.0 International (CC BY 4.0)
+
+O texto deste livro ("Full Stack Moderno: do zero ao sênior") está licenciado
+sob a licença Creative Commons Atribuição 4.0 Internacional.
+
+Você tem permissão para:
+- Compartilhar — copiar e redistribuir o material em qualquer suporte ou formato;
+- Adaptar — remixar, transformar e criar a partir do material para qualquer
+  finalidade, inclusive comercial.
+
+Desde que você atribua o devido crédito, forneça um link para a licença e
+indique se foram feitas alterações. Você pode fazê-lo de qualquer forma
+razoável, mas não de forma que sugira que o licenciante apoia você ou o seu uso.
+
+- Resumo legível: https://creativecommons.org/licenses/by/4.0/deed.pt-br
+- Texto legal completo: https://creativecommons.org/licenses/by/4.0/legalcode.pt

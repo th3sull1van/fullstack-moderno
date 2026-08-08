@@ -1,0 +1,448 @@
+% ============================================================================
+% CAPÍTULO 15 — Full stack\index{full stack} integrado com Next.js
+% Status: texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{Full Stack Integrado com Next.js}
+\label{cap:fullstack}
+
+\begin{caixaconceito}
+Aqui tudo se conecta: React (capítulo~\ref{cap:react}), Next.js
+(capítulo~\ref{cap:nextjs}), PostgreSQL (capítulo~\ref{cap:postgresql}),
+Prisma\index{Prisma} (capítulo~\ref{cap:orms}) e autenticação (capítulo~\ref{cap:auth})
+formando um \textbf{produto full stack único} — sem servidores separados para
+manter. Server Actions\index{Server Actions}, Route Handlers e cache sob demanda são o coração deste
+capítulo.
+\end{caixaconceito}
+
+Até aqui, você aprendeu as peças separadamente: uma API REST com Express ou
+Hono, um banco relacional com Prisma, um frontend React. Agora o modelo muda de
+figura. No App Router do Next.js, \emph{frontend e backend vivem no mesmo
+projeto} — às vezes, no mesmo arquivo. Isso não é uma moda: é a evolução
+natural de uma década de separação forçada entre cliente e servidor, e é o
+modelo que o mercado de TypeScript mais contratou nos últimos anos.
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Conectar o Next.js ao PostgreSQL via Prisma em Server Components;
+  \item Implementar mutações com Server Actions e \texttt{useActionState};
+  \item Criar APIs com Route Handlers quando necessário;
+  \item Invalidar cache sob demanda com \texttt{revalidatePath}/\texttt{revalidateTag};
+  \item Proteger páginas e ações com autenticação e RBAC;
+  \item Entregar o projeto do capítulo: um marketplace de serviços.
+\end{objetivos}
+
+\section{A arquitetura: uma única aplicação, três camadas}
+
+No modelo clássico, você mantinha pelo menos dois projetos: um \texttt{api/}
+(backend) e um \texttt{web/} (frontend), conversando por HTTP em produção.
+Isso funciona, mas paga um custo: dois deploys, dois ambientes, duas formas de
+validar dados, e uma camada de rede — com latência, serialização e segurança —
+entre código que poderia simplesmente conversar na memória.
+
+O App Router propõe algo diferente. No mesmo projeto, quatro tipos de código
+convivem, cada um com um papel claro:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Server Components} que buscam dados direto do banco (sem camada de API intermediária);
+  \item \textbf{Server Actions} que escrevem no banco a partir de formulários (mutações com \texttt{<form action=\{\ldots\}>});
+  \item \textbf{Route Handlers} (\texttt{route.ts}) para APIs públicas ou integrações;
+  \item \textbf{Client Components} apenas para interatividade pontual.
+\end{itemize}
+
+A Figura~\ref{fig:skillhub-arquitetura} mostra como essas camadas se
+organizam no SkillHub: o navegador fala apenas com o Next.js, que acessa o
+banco (síncrono) e as filas (assíncrono) — sem uma API intermediária
+separada.
+
+\begin{figure}[htbp]
+  \centering
+  \diagramatikz{%
+  \begin{tikzpicture}[
+      box/.style={draw=primaria, fill=azulclaro, rounded corners=2pt,
+        align=center, inner sep=4pt, font=\footnotesize},
+      seta/.style={-{Stealth[length=2.2mm]}, thick, color=secundaria},
+      font=\footnotesize
+    ]
+    \node[box] (user) at (0,0) {Usuário\\(navegador)};
+    \node[box] (next) at (4.4,0) {Next.js (App Router)\\Server Components · Actions\\Route Handlers · Auth.js};
+    \node[box] (pg) at (8.8,-1.5) {PostgreSQL\\(dados)};
+    \node[box] (redis) at (8.8,1.5) {Redis · BullMQ\\(filas)};
+    \node[box] (worker) at (12.6,1.5) {Worker\\(e-mails)};
+    \draw[seta] (user) -- (next);
+    \draw[seta] (next) -- node[above] {Prisma} (pg);
+    \draw[seta] (next) -- node[above] {fila} (redis);
+    \draw[seta] (redis) -- node[above] {consome} (worker);
+    \draw[seta, dashed] (pg.north) -- node[below] {resposta} (next.south east);
+  \end{tikzpicture}}
+  \caption{Arquitetura do SkillHub: uma aplicação, dados síncronos (banco) e
+  trabalho assíncrono (filas).}
+  \label{fig:skillhub-arquitetura}
+\end{figure}
+
+\begin{table}[h]
+\centering
+\small
+\caption{As três camadas de escrita do App Router e quando usar cada uma.}
+\label{tab:camadas-next}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Pergunta} & \textbf{Server Component} & \textbf{Server Action} & \textbf{Route Handler} \\
+\midrule
+O que faz? & Lê dados e renderiza & Escreve dados (mutações) & Expõe API HTTP \\
+Onde roda? & Servidor (SSR/SSG) & Servidor & Servidor \\
+Como é chamado? & Pela renderização & Por um \texttt{<form>} & Por \texttt{fetch} \\
+Cliente vê? & Só o HTML & Nada do código & Só a resposta \\
+Quando usar? & Listagens, detalhes & Formulários, botões & Webhooks, mobile, terceiros \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{caixadica}
+Regra prática: \emph{leitura} vai em Server Component, \emph{escrita} vai em
+Server Action, e \emph{integração com o mundo externo} vai em Route Handler.
+Se você seguir só essa regra, já acerta 90\% dos casos reais.
+\end{caixadica}
+
+\section{Buscando dados: do banco à tela}
+
+Um Server Component é uma função \texttt{async} que roda no servidor. Como ele
+tem acesso direto ao Node.js, pode importar o Prisma e consultar o banco sem
+passar por HTTP:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Server Component lendo o banco direto.}, label={list:fullstack-server}]
+import { prisma } from "@/lib/prisma";
+
+export default async function PaginaDeServicos() {
+  const servicos = await prisma.servico.findMany({
+    orderBy: { criadoEm: "desc" },
+    take: 20,
+  });
+
+  return (
+    <ul>
+      {servicos.map((s) => (
+        <li key={s.id}>
+          <h2>{s.titulo}</h2>
+          <p>{s.descricao}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+\end{lstlisting}
+
+Note o que \emph{não} acontece aqui: não há \texttt{fetch}, não há URL de API,
+não há serialização JSON e não há estado de carregamento no cliente. O banco é
+consultado durante a renderização no servidor, e o navegador recebe HTML
+pronto. Isso elimina o ``cascata de requisições'' típica de SPAs, em que a
+página carrega, depois busca dados, depois renderiza.
+
+\begin{caixaconceito}
+\textbf{Por que isso é seguro?} O código do Server Component nunca chega ao
+navegador — nem o import do Prisma, nem a string de conexão, nem as queries.
+Se você tentar importar um módulo de servidor num Client Component, o Next.js
+falha em tempo de compilação com um erro claro. Essa fronteira é o que torna o
+modelo seguro por construção, e não por disciplina.
+\end{caixaconceito}
+
+\subsection{Cache e revalidação}
+
+Por padrão, o Next.js tenta ser o mais estático possível: páginas e dados são
+cacheados, e o site fica rápido. O problema: depois de uma mutação, o cache
+pode servir dados velhos. A solução oficial é invalidar \emph{sob demanda}:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \texttt{revalidatePath("/servicos")} — invalida uma rota específica;
+  \item \texttt{revalidateTag("servicos")} — invalida todos os dados marcados com aquela tag (\texttt{fetch} com \texttt{next: \{ tags: [...] \}});
+  \item \texttt{router.refresh()} — no cliente, recarrega a rota atual sem perder estado.
+\end{itemize}
+
+\begin{caixadica}
+Use tags quando a mesma informação aparece em várias rotas (por exemplo, a
+contagem de pedidos no cabeçalho e no painel). Use \texttt{revalidatePath}
+quando a invalidação é local a uma rota. Misturar os dois é comum e saudável.
+\end{caixadica}
+
+\section{Mutações com Server Actions}
+
+Uma Server Action é uma função \texttt{async} marcada com \texttt{"use server"}
+que o navegador chama diretamente — sem escrever um endpoint, sem
+\texttt{fetch}, sem JSON manual. O Next.js gera um POST interno, serializa o
+\texttt{FormData} e executa a função no servidor com sua sessão real:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Server Action com validação e revalidação.}, label={list:fullstack-action}]
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+
+const schema = z.object({
+  titulo: z.string().min(3).max(80),
+  precoCentavos: z.coerce.number().int().positive(),
+});
+
+export async function criarServico(prev: Estado, formData: FormData) {
+  const parsed = schema.safeParse({
+    titulo: formData.get("titulo"),
+    precoCentavos: formData.get("precoCentavos"),
+  });
+
+  if (!parsed.success) {
+    return { erro: "Dados inválidos. Verifique título e preço." };
+  }
+
+  await prisma.servico.create({ data: parsed.data });
+  revalidatePath("/servicos"); // atualiza a página em cache
+  return { sucesso: true };
+}
+\end{lstlisting}
+
+Três detalhes merecem destaque:
+
+\begin{enumerate}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Validação no servidor}: o schema Zod\index{Zod} roda no servidor. O
+  navegador pode enviar qualquer coisa — inclusive dados manipulados — e a
+  ação rejeita. Validar só no cliente é enfeite; validar no servidor é segurança.
+  \item \textbf{Assinatura com estado}: o primeiro parâmetro \texttt{prev}
+  carrega o retorno da execução anterior, permitindo feedback de erro sem
+  estado global no cliente.
+  \item \textbf{Revalidação}: sem \texttt{revalidatePath}, o usuário publica o
+  serviço, mas a listagem em cache continua sem ele — a mudança ``não
+  acontece''.
+\end{enumerate}
+
+\subsection{O formulário no cliente}
+
+Do lado do cliente, o React 19 entrega \texttt{useActionState}, que liga o
+formulário à ação e devolve estado e indicador de progresso:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Formulário com useActionState (React 19).}, label={list:fullstack-form}]
+"use client";
+
+import { useActionState } from "react";
+import { criarServico } from "./acoes";
+
+export function FormularioDeServico() {
+  const [estado, acao, pendente] = useActionState(criarServico, {});
+
+  return (
+    <form action={acao}>
+      <input name="titulo" placeholder="Título do serviço" required />
+      <input name="precoCentavos" type="number" placeholder="Preço (centavos)" required />
+      <button disabled={pendente}>
+        {pendente ? "Salvando..." : "Publicar serviço"}
+      </button>
+      {estado?.erro && <p role="alert">{estado.erro}</p>}
+    </form>
+  );
+}
+\end{lstlisting}
+
+\begin{caixaconceito}
+\textbf{Server Actions} transformam formulários HTML em mutações seguras: o
+código roda no servidor (nunca exposto ao cliente), o estado de envio vem de
+graça via \texttt{useActionState} (\texttt{useFormState} no React 19.1+), e
+\texttt{revalidatePath} atualiza o cache. É o padrão mais produtivo do
+Next.js 16 — e o que o mercado espera que você saiba.
+\end{caixaconceito}
+
+\begin{caixaarmadilha}
+\textbf{Não exponha a ação em Client Components arbitrários.} Uma Server
+Action importada por um Client Component vira um POST público: qualquer pessoa
+pode chamá-la com um \texttt{fetch} — inclusive fora do seu formulário. Por
+isso a autorização \emph{precisa} ser revalidada dentro da ação, nunca
+assumida pelo fato de o botão estar visível na tela.
+\end{caixaarmadilha}
+
+\section{Route Handlers e APIs públicas}
+
+Nem tudo é página. Webhooks de pagamento, aplicativos mobile e integrações com
+terceiros precisam de uma API HTTP clássica. Para esses casos, o App Router
+oferece \texttt{app/api/.../route.ts} — um arquivo que exporta funções por
+método HTTP:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Route Handler com validação e status HTTP.}, label={list:fullstack-route}]
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  const servicos = await prisma.servico.findMany({ take: 50 });
+  return NextResponse.json(servicos);
+}
+
+export async function POST(req: Request) {
+  const body = await req.json();
+  // valide com zod, verifique auth, então crie
+  return NextResponse.json({ id: novo.id }, { status: 201 });
+}
+\end{lstlisting}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{GET} — leitura pública; o resultado pode ser cacheado com
+  \texttt{revalidateTag} no fetch do consumidor;
+  \item \textbf{POST/PUT/DELETE} — mutações vindas de fora; valide o corpo,
+  autentique o chamador (Bearer token, sessão, assinatura) e retorne códigos
+  de status corretos (201, 400, 401, 403, 404);
+  \item \textbf{Webhooks} — receba eventos de serviços externos (Stripe,
+  GitHub) e processe de forma idempotente: guarde o \texttt{id} do evento para
+  não processar o mesmo evento duas vezes.
+\end{itemize}
+
+\begin{caixadica}
+Regra de ouro: se o consumidor é o \emph{seu próprio frontend}, prefira Server
+Components e Server Actions — eles são mais rápidos e mais simples. Se o
+consumidor é \emph{outro sistema}, use Route Handlers. A API pública é uma
+fronteira; a renderização, não.
+\end{caixadica}
+
+\section{Protegendo páginas e ações}
+
+Autenticação e autorização não mudam de natureza no Next.js — elas mudam de
+lugar. Tudo acontece no servidor:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Layout protegido}: chame \texttt{auth()} do Auth.js no topo do \texttt{layout.tsx} e redirecione para login;
+  \item \textbf{Ações protegidas}: revalide a sessão \emph{dentro} da Server Action (nunca confie no cliente);
+  \item \textbf{RBAC}: verifique o papel do usuário logado antes de cada mutação;
+  \item \textbf{CSRF}: Server Actions e cookies \texttt{httpOnly} já tratam a maior parte; mantenha-se nos padrões oficiais.
+\end{itemize}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Autorização dentro de uma Server Action (RBAC).}, label={list:fullstack-rbac}]
+"use server";
+
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+
+export async function excluirServico(id: string) {
+  const sessao = await auth();
+  if (!sessao?.user) throw new Error("Não autenticado");
+
+  const servico = await prisma.servico.findUnique({ where: { id } });
+  if (!servico) throw new Error("Serviço não encontrado");
+  if (servico.donoId !== sessao.user.id) {
+    throw new Error("Sem permissão para excluir este serviço");
+  }
+
+  await prisma.servico.delete({ where: { id } });
+  revalidatePath("/servicos");
+}
+\end{lstlisting}
+
+Repare na sequência: autentica $\rightarrow$ busca o recurso $\rightarrow$
+compara o dono $\rightarrow$ age. Se qualquer etapa falhar, a ação falha —
+mesmo que o usuário tenha aberto o DevTools e editado o HTML para ``mostrar''
+o botão de excluir.
+
+% ============================================================================
+\section{Projeto do capítulo: marketplace de serviços}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} construir o \emph{SkillHub} — um marketplace onde
+profissionais anunciam serviços (aulas, design, consertos) e clientes fazem
+pedidos.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Autenticação com Auth.js (e-mail + senha, com hash argon2);
+  \item Anúncio de serviços via Server Action (título, descrição, preço, categoria);
+  \item Página pública \texttt{/servicos} com busca e filtro por categoria;
+  \item Detalhe \texttt{/servicos/[id]} com botão ``Contratar'' que cria um pedido;
+  \item Área do profissional \texttt{/painel} listando seus anúncios e pedidos;
+  \item RBAC: apenas o dono edita/exclui o anúncio;
+  \item Cache invalidado corretamente após cada mutação;
+  \item Migrações Prisma + seed com 15 serviços reais.
+\end{itemize}
+\end{caixaprojeto}
+
+\subsection{Passo a passo}
+
+\begin{passos}
+  \item \textbf{Base}: crie o projeto com \texttt{create-next-app} (TypeScript,
+  App Router, Tailwind) e configure o Prisma com o PostgreSQL local
+  (capítulo~\ref{cap:postgresql});
+  \item \textbf{Schema}: modele \texttt{Usuario}, \texttt{Servico} e
+  \texttt{Pedido} com relações — um usuário tem vários serviços; um pedido
+  aponta para serviço e cliente; rode a primeira migração;
+  \item \textbf{Autenticação}: configure o Auth.js com credenciais, hash de
+  senha com \texttt{argon2} e sessão via cookie \texttt{httpOnly};
+  \item \textbf{Listagem}: implemente \texttt{/servicos} como Server Component
+  com busca (\texttt{searchParams}) e filtro por categoria;
+  \item \textbf{Criação}: implemente a Server Action \texttt{criarServico}
+  (validação Zod + RBAC) e o formulário com \texttt{useActionState};
+  \item \textbf{Detalhe e pedido}: \texttt{/servicos/[id]} com Server
+  Component, e a ação \texttt{contratar} que cria um \texttt{Pedido} e
+  revalida o painel;
+  \item \textbf{Painel}: \texttt{/painel} com os anúncios e pedidos do usuário
+  logado (layout protegido com \texttt{auth()});
+  \item \textbf{Seed}: escreva um script que cria 15 serviços realistas em
+  categorias variadas e valide as páginas de ponta a ponta.
+\end{passos}
+
+\begin{caixadica}
+O SkillHub é o ``capítulo-síntese'' da parte prática: ele reúne 60\% de tudo
+o que você aprendeu. Guarde-o — ele vira o case central do seu portfólio.
+\end{caixadica}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Quando usar Server Component, Server Action e Route Handler? Dê um caso para cada.
+  \item O que \texttt{revalidatePath} faz e por que é necessário após uma mutação?
+  \item Escreva uma Server Action que cria um comentário e valida com Zod.
+  \item Por que a sessão deve ser revalidada \emph{dentro} da Server Action?
+  \item Monte o formulário de criação com \texttt{useActionState} mostrando estado de erro e de carregamento.
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Upload de imagem}: use \texttt{uploadthing} ou \texttt{s3} para permitir foto no anúncio (com validação de tipo e tamanho).
+  \item \textbf{Comentários e avaliações}: adicione comentários com nota (1--5) por serviço, com média exibida.
+  \item \textbf{Busca com filtros}: combine categoria + faixa de preço + ordenação na listagem.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Otimismo e concorrência}: use \texttt{useOptimistic} para o botão ``Contratar'' atualizar a UI instantaneamente e reconciliar com o servidor.
+  \item \textbf{Streaming de páginas}: divida a página de listagem em seções com \texttt{Suspense} e meça a diferença de LCP.
+  \item \textbf{Auditoria de cache}: explique a interação entre \texttt{revalidatePath}, \texttt{revalidateTag} e o cache de dados do Next 16 em um diagrama.
+  \item \textbf{Testes integrados}: escreva testes E2E do fluxo ``cadastrar $\rightarrow$ anunciar $\rightarrow$ contratar'' (configuração no capítulo~\ref{cap:testes}).
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Colocar toda a página em \texttt{"use client"} (perde o modelo do servidor);
+  \item Validar apenas no cliente (dados podem chegar manipulados);
+  \item Esquecer \texttt{revalidatePath} e o usuário não ver a mudança;
+  \item Confiar no cliente para autorização (todo request pode ser forjado);
+  \item Ações sem tratamento de erro (deixe o usuário saber o que falhou);
+  \item Criar \texttt{route.ts} para o próprio frontend (duplica lógica e adiciona latência sem ganho);
+  \item Usar \texttt{fetch} dentro de Server Components para chamar a própria API (o Next.js pode otimizar, mas consultar o banco direto é mais simples e rápido).
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Next.js integra frontend, backend e banco em um único projeto;
+  \item Server Components leem o banco; Server Actions escrevem; Route Handlers expõem APIs;
+  \item \texttt{revalidatePath/Tag} mantêm o cache coerente;
+  \item Valide no servidor e revalide a sessão em toda mutação;
+  \item Projeto entregue: marketplace SkillHub completo.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Next.js — Server Actions: \url{https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions-and-mutations}
+  \item Next.js — Route Handlers: \url{https://nextjs.org/docs/app/building-your-application/routing/route-handlers}
+  \item Next.js — Caching: \url{https://nextjs.org/docs/app/building-your-application/caching}
+  \item React — \texttt{useActionState}: \url{https://react.dev/reference/react/useActionState}
+\end{itemize}

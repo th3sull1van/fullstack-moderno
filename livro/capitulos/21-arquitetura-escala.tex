@@ -1,0 +1,289 @@
+% ============================================================================
+% CAPÍTULO 21 — Arquitetura\index{arquitetura} e escala
+% Status: texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{Arquitetura e Escala}
+\label{cap:arquitetura}
+
+\begin{caixaconceito}
+Escalar não é ``fazer mais do mesmo'': é desenhar o sistema para crescer sem
+desmoronar. Este capítulo cobre as peças que todo sistema full stack
+produção encontra: \textbf{cache (Redis)}, \textbf{filas}, \textbf{bancos},
+\textbf{microsserviços} e \textbf{padrões arquiteturais}.
+\end{caixaconceito}
+
+Até aqui, o SkillHub é uma aplicação única: um processo, um banco, tudo
+síncrono. Isso é correto — e saudável. Mas chega o dia em que a aplicação
+precisa fazer mais: enviar mil e-mails sem travar a requisição, servir a
+mesma listagem para mil usuários sem bater no banco mil vezes, sobreviver a
+picos sem desligar. Este capítulo é sobre esse dia: as decisões que você toma
+\emph{antes} dele chegar.
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Explicar os padrões de escala (vertical, horizontal, stateless\index{stateless});
+  \item Usar Redis\index{Redis} para cache, sessões e rate limiting;
+  \item Projetar filas\index{filas} assíncronas (processamento de tarefas em background);
+  \item Comparar monólito\index{monólito}, modular e microsserviços\index{microsserviços} com critérios;
+  \item Aplicar padrões: retry, circuit breaker, backoff, idempotência;
+  \item Entregar o projeto do capítulo: a arquitetura de eventos do SkillHub.
+\end{objetivos}
+
+\section{Os três eixos de escala}
+
+Quando um sistema fica lento, há três direções possíveis de crescimento — e
+cada uma responde a uma pergunta diferente:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Vertical}: máquina maior (CPU/RAM). Simples, mas com teto e custo exponencial;
+  \item \textbf{Horizontal}: mais instâncias atrás de um load balancer. Exige aplicação \emph{stateless} (estado fora do processo: banco/Redis);
+  \item \textbf{Assíncrona}: tarefas pesadas saem da requisição e vão para filas — a requisição responde rápido e o processamento acontece em background.
+\end{itemize}
+
+\begin{caixaconceito}
+\textbf{Stateless} é a chave: se cada instância guarda estado na memória
+(sessões locais, cache local), adicionar instâncias quebra a aplicação. Estado
+vai para serviços externos (PostgreSQL, Redis). É a diferença entre escalar e
+``escalar até quebrar''.
+\end{caixaconceito}
+
+\begin{caixadica}
+A escala vertical não é ``errada'' — é a primeira e mais barata. O erro é
+tratá-la como a única: quando a máquina maior custa mais que duas máquinas
+menores, o momento de ir horizontal chegou. E a escala assíncrona costuma ser
+a mais subestimada: o e-mail que demora 2 segundos não precisa ser síncrono —
+ele precisa \emph{sair da frente} da resposta HTTP.
+\end{caixadica}
+
+\section{Redis: o canivete suíço da infraestrutura}
+
+O Redis é um banco em memória, chave-valor, absurdamente rápido (sub-
+milissegundo). Ele não substitui o PostgreSQL — ele fica \emph{na frente}
+dele para o que é lido muitas vezes e muda pouco:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Cache com Redis (ioredis).}, label={list:arq-redis}]
+import { Redis } from "ioredis";
+
+const redis = new Redis(process.env.REDIS_URL!);
+
+async function buscarTopServicos() {
+  const CACHE_KEY = "skillhub:top-servicos";
+
+  // 1. Tenta o cache
+  const emCache = await redis.get(CACHE_KEY);
+  if (emCache) return JSON.parse(emCache);
+
+  // 2. Busca na fonte (lenta) e popula o cache com TTL
+  const dados = await prisma.servico.findMany({ orderBy: { pedidos: "desc" }, take: 10 });
+  await redis.set(CACHE_KEY, JSON.stringify(dados), "EX", 300); // 5 min
+  return dados;
+}
+\end{lstlisting}
+
+\begin{caixadica}
+Padrão \textbf{cache-aside} (acima): leia do cache; em miss, busque na fonte e
+popule com TTL. Cuidado com \emph{cache stampede} (muitas requisições
+simultâneas em cache miss) — use lock ou \texttt{SET NX} no Redis.
+\end{caixadica}
+
+Além de cache, o Redis é a solução natural para três problemas de estado
+compartilhado: \textbf{sessões} (o usuário logado em qualquer instância),
+\textbf{rate limiting} (contador por IP/usuario com expiração — janela
+deslizante) e \textbf{filas} (seção seguinte). São exatamente os casos em que
+``estado na instância'' quebra com escala horizontal.
+
+\section{Filas: processamento assíncrono}
+
+O padrão é \textbf{produtor--fila--consumidor}: o request enfileira a tarefa e
+responde \texttt{202 Accepted}; um worker processa em background.
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{BullMQ} (Redis): a fila padrão do ecossistema Node/TS — jobs, retries, agendamento, progresso;
+  \item \textbf{Casos de uso}: e-mails, relatórios PDF, processamento de imagem, integrações lentas, notificações;
+  \item \textbf{Idempotência}: processar a mesma mensagem duas vezes não pode duplicar efeito (chave única no job);
+  \item \textbf{Dead letter}: jobs que falham N vezes vão para uma fila de inspeção humana.
+\end{itemize}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Produtor e consumidor com BullMQ.}, label={list:arq-fila}]
+import { Queue, Worker } from "bullmq";
+
+const filaEmail = new Queue("emails", { connection: redis });
+
+// Produtor (dentro de uma rota)
+await filaEmail.add("boas-vindas", { usuarioId: 42 }, {
+  attempts: 3,
+  backoff: { type: "exponential", delay: 2000 },
+});
+
+// Consumidor (processo separado)
+new Worker("emails", async (job) => {
+  const { usuarioId } = job.data;
+  await enviarEmailBoasVindas(usuarioId); // lento, fora da requisição
+}, { connection: redis });
+\end{lstlisting}
+
+\begin{caixaconceito}
+\textbf{Por que a fila muda a arquitetura?} A requisição HTTP deixa de ser
+responsável pelo resultado final da tarefa — ela só garante que a tarefa
+\emph{foi aceita}. Isso desacopla tempo (a tarefa roda quando puder), volume
+(a fila absorve picos) e falha (o retry cuida do erro sem travar o usuário).
+O preço: o resultado deixa de ser imediato — e o produto precisa aceitar
+``vai acontecer em instantes''.
+\end{caixaconceito}
+
+\section{Monólito vs microsserviços}
+
+A decisão arquitetural mais discutida da década, resumida:
+
+\begin{table}[h]
+\centering
+\small
+\caption{Monólito, modular e microsserviços — critérios de decisão.}
+\label{tab:arq-comparacao}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.8cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Critério} & \textbf{Monólito} & \textbf{Modular} & \textbf{Microsserviços} \\
+\midrule
+Deploys & 1 & 1 & N \\
+Simplicidade & Alta & Alta & Baixa \\
+Custo operacional & Baixo & Baixo & Alto \\
+Escala independente & Não & Parcial & Sim \\
+Time & Qualquer & Qualquer & Grande, por domínio \\
+Quando escolher & Começo & A maioria & Caso específico \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Monólito}: uma aplicação, um deploy. Simples, barato, fácil de começar — a escolha certa para 90\% dos produtos;
+  \item \textbf{Modular (modulith)}: um deploy, mas módulos bem delimitados por domínio — o meio-termo recomendado;
+  \item \textbf{Microsserviços}: serviços independentes por domínio, com seus próprios bancos e deploys. Justificável em times grandes e requisitos de escala independente — com custo alto de operação.
+\end{itemize}
+
+\begin{caixaconceito}
+A regra prática: \textbf{comece monolítico, evolua com critério}. Extrair um
+serviço (ex.: notificações) quando um domínio tiver requisitos de escala,
+time e deploy próprios. Microsserviços por ``modernidade'' é a receita de
+fracasso mais comum da indústria.
+\end{caixaconceito}
+
+\section{Padrões de resiliência}
+
+Sistemas distribuídos falham — o design precisa assumir isso:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Retry com backoff}: exponencial + jitter para não sobrecarregar serviços lentos;
+  \item \textbf{Circuit breaker}: após N falhas, ``abre o circuito'' e falha rápido por um período — protege o serviço degradado;
+  \item \textbf{Timeout}: sempre defina timeout em chamadas externas (uma dependência lenta não pode travar seu servidor);
+  \item \textbf{Idempotência}: chaves de idempotência em POST para evitar duplicação em retries;
+  \item \textbf{Graceful degradation}: se a feature X cair, o resto continua funcionando.
+\end{itemize}
+
+\begin{caixaconceito}
+\textbf{Circuit breaker} imita a engenharia elétrica: quando o serviço externo
+está falhando, continuar chamando só piora (cada tentativa espera o timeout e
+consome recursos). O breaker abre depois de N falhas — falha \emph{na hora},
+sem chamar — e tenta de novo após um período (meio-aberto). O sistema degrada
+com graça em vez de cair em cascata.
+\end{caixaconceito}
+
+% ============================================================================
+\section{Projeto do capítulo: arquitetura de eventos do SkillHub}
+\label{sec:projeto21}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} evoluir o SkillHub para processar notificações e
+relatórios de forma assíncrona, com Redis e BullMQ.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Redis integrado (Docker, capítulo~\ref{cap:docker}) para cache de listagem e sessões;
+  \item Fila de e-mails com BullMQ: produtor na Server Action, worker separado, retry com backoff;
+  \item Relatório mensal gerado em background (job agendado) e disponibilizado como arquivo;
+  \item Rate limit do login usando Redis (janela deslizante);
+  \item Cache-aside no ranking de serviços com invalidação sob demanda;
+  \item Diagrama de arquitetura documentado (requisição síncrona vs fila assíncrona);
+  \item Testes: produtor enfileira, worker processa, idempotência verificada.
+\end{itemize}
+\end{caixaprojeto}
+
+\subsection{Passo a passo}
+
+\begin{passos}
+  \item \textbf{Redis no Compose}: adicione o serviço \texttt{redis} ao
+  \texttt{docker-compose.yml} (capítulo~\ref{cap:docker}) com health check;
+  \item \textbf{Cache-aside}: implemente o ranking de serviços com cache e
+  TTL; invalide por tag ao criar um pedido;
+  \item \textbf{Rate limit}: proteja a rota de login com contador Redis por
+  e-mail/IP (janela deslizante) e mensagem genérica;
+  \item \textbf{Fila de e-mails}: crie a fila BullMQ, o produtor na Server
+  Action (e-mail de boas-vindas) e o worker em processo separado com retry
+  exponencial;
+  \item \textbf{Job agendado}: registre o worker de relatório mensal com
+  \texttt{RepeatableJob} e publique o PDF gerado como arquivo;
+  \item \textbf{Idempotência}: dê uma chave única a cada job (ex.:
+  \texttt{email:boas-vindas:42}) para que reprocessamentos não dupliquem;
+  \item \textbf{Documentação}: desenhe o diagrama síncrono vs assíncrono e
+  escreva os testes de fila (produtor enfileira; worker processa; retry após
+  falha).
+\end{passos}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Diferencie escala vertical, horizontal e assíncrona com um exemplo cada.
+  \item Por que uma aplicação stateless é pré-requisito para escala horizontal?
+  \item Desenhe o fluxo de uma tarefa em fila: quem produz, onde espera, quem consome.
+  \item O que é idempotência e por que ela importa em filas e retries?
+  \item Cite um caso em que microsserviços se justificam e um em que não.
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Circuit breaker}: implemente um circuit breaker simples para uma chamada externa (estado aberto/fechado/meio-aberto) e teste a recuperação.
+  \item \textbf{Cache stampede}: simule 100 requisições simultâneas em cache miss e proteja com lock Redis; documente o ganho.
+  \item \textbf{Fila de imagens}: processe redimensionamento de imagem em background (sharp) com fila e status de progresso.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Event sourcing vs CRUD}: compare as duas abordagens para o domínio ``pedidos'' e descreva quando event sourcing se justifica.
+  \item \textbf{Transações distribuídas}: explique por que transações ACID não cruzam microsserviços e como o padrão \emph{Saga} (coreografia vs orquestração) resolve.
+  \item \textbf{Consistência eventual}: desenhe um caso em que cache + fila causam leitura defasada e documente a estratégia de reconciliação.
+  \item \textbf{Backpressure}: projete o que acontece quando a fila enche (limite, drop com métricas, DLQ) e implemente a política.
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Cache sem TTL nem invalidação (dados velhos para sempre);
+  \item Fila sem retry/backoff (uma falha de rede derruba o job para sempre);
+  \item Microsserviços prematuros (custo operacional antes do problema real);
+  \item Estado na instância (sessões locais) e depois ``não escala'';
+  \item Sem timeouts em chamadas externas (cascata de lentidão);
+  \item Job duplicado por falta de idempotência (o retry que deveria salvar, corrompe).
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Escala: vertical, horizontal (stateless) e assíncrona (filas);
+  \item Redis: cache, sessões, rate limit, filas (BullMQ);
+  \item Filas tiram trabalho pesado da requisição e ganham retry/backoff;
+  \item Monólito primeiro; extraia serviços com critério;
+  \item Resiliência: timeout, retry, circuit breaker, idempotência;
+  \item Projeto entregue: SkillHub com arquitetura de eventos.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Documentação do Redis: \url{https://redis.io/docs/latest/}
+  \item BullMQ: \url{https://docs.bullmq.io}
+  \item Microsoft — Padrões de nuvem (Cloud Design Patterns): \url{https://learn.microsoft.com/en-us/azure/architecture/patterns/}
+  \item Martin Fowler — Microsserviços: \url{https://martinfowler.com/microservices/}
+\end{itemize}

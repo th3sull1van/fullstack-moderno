@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="OrçaFácil: o app que organiza seu orçamento pessoal em minutos." />
+  <title>OrçaFácil — Suas finanças sob controle</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <a class="logo" href="/">OrçaFácil</a>
+    <nav aria-label="Navegação principal">
+      <ul class="menu">
+        <li><a href="#recursos">Recursos</a></li>
+        <li><a href="#planos">Planos</a></li>
+        <li><a href="#contato">Contato</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-conteudo">
+        <h1>Suas finanças sob controle, sem planilha maluca</h1>
+        <p class="hero-subtitulo">
+          O OrçaFácil conecta suas contas, categoriza seus gastos com IA e
+          mostra exatamente para onde seu dinheiro vai — em minutos, não em meses.
+        </p>
+        <div class="hero-acoes">
+          <a class="botao botao--primario" href="#planos">Começar grátis</a>
+          <a class="botao botao--secundario" href="#recursos">Conhecer recursos</a>
+        </div>
+      </div>
+      <img class="hero-imagem" src="app-preview.png"
+           alt="Prévia do aplicativo OrçaFácil mostrando gráfico de gastos mensais" />
+    </section>
+
+    <section id="recursos" aria-labelledby="titulo-recursos">
+      <h2 id="titulo-recursos">Recursos que resolvem</h2>
+      <div class="grade-recursos">
+        <article class="card">
+          <h3>Categorização automática</h3>
+          <p>Nossos algoritmos classificam cada transação sem você levantar um dedo.</p>
+        </article>
+        <article class="card">
+          <h3>Metas inteligentes</h3>
+          <p>Defina uma meta e o app calcula quanto guardar por dia para alcançá-la.</p>
+        </article>
+        <article class="card">
+          <h3>Alertas de gasto</h3>
+          <p>Receba avisos quando estiver perto de estourar o orçamento da categoria.</p>
+        </article>
+        <article class="card">
+          <h3>Relatórios em PDF</h3>
+          <p>Exporte seu mês em um clique para enviar ao contador ou ao banco.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="planos" aria-labelledby="titulo-planos">
+      <h2 id="titulo-planos">Planos simples</h2>
+      <div class="grade-planos">
+        <article class="plano">
+          <h3>Grátis</h3>
+          <p class="preco">R$ 0</p>
+          <ul>
+            <li>1 conta bancária</li>
+            <li>Categorização manual</li>
+            <li>Relatórios mensais</li>
+          </ul>
+          <a class="botao botao--secundario" href="/cadastro">Escolher</a>
+        </article>
+        <article class="plano plano--destaque">
+          <h3>Pro</h3>
+          <p class="preco">R$ 19,90/mês</p>
+          <ul>
+            <li>Contas ilimitadas</li>
+            <li>Categorização com IA</li>
+            <li>Metas e alertas</li>
+            <li>Exportação em PDF</li>
+          </ul>
+          <a class="botao botao--primario" href="/cadastro">Assinar Pro</a>
+        </article>
+      </div>
+    </section>
+
+    <section id="contato" aria-labelledby="titulo-contato">
+      <h2 id="titulo-contato">Fale com a gente</h2>
+      <form action="/api/contato" method="post">
+        <label for="email">Seu melhor e-mail</label>
+        <input type="email" id="email" name="email" required autocomplete="email" />
+        <button class="botao botao--primario" type="submit">Quero saber mais</button>
+      </form>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <p>© 2026 OrçaFácil — projeto do capítulo 3 do livro Full Stack Moderno.</p>
+  </footer>
+</body>
+</html>

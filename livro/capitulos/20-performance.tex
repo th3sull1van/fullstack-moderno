@@ -1,0 +1,248 @@
+% ============================================================================
+% CAPÍTULO 20 — Performance\index{performance} web
+% Status: texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{Performance Web}
+\label{cap:performance}
+
+\begin{caixaconceito}
+Performance é \emph{experiência e dinheiro}: 100ms a mais de carregamento
+reduzem conversão, e apps lentos custam mais em infraestrutura. Este capítulo
+ensina a medir (Core Web Vitals\index{Core Web Vitals}), diagnosticar e otimizar — do navegador ao
+banco de dados.
+\end{caixaconceito}
+
+Performance tem uma qualidade rara entre os tópicos técnicos: todo mundo
+concorda que importa, e quase ninguém a trata como requisito. O resultado são
+aplicações que ``funcionam'' mas demoram 6 segundos para mostrar o conteúdo
+principal, pulam enquanto carregam e travam ao digitar. Este capítulo trata
+performance como \emph{engenharia}: medir primeiro, otimizar com evidência,
+e impedir regressão no CI.
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Medir performance com Lighthouse\index{Lighthouse} e Core Web Vitals (LCP\index{LCP}, INP\index{INP}, CLS\index{CLS});
+  \item Otimizar o frontend: bundle, imagens, fontes, lazy loading\index{lazy loading};
+  \item Otimizar o backend: cache\index{cache}, consultas, conexões;
+  \item Diagnosticar gargalos com DevTools e profiling;
+  \item Definir orçamentos de performance (budgets) no CI;
+  \item Entregar o projeto do capítulo: a otimização documentada do SkillHub.
+\end{objetivos}
+
+\section{Core Web Vitals: métricas que o Google mede}
+
+O Google avalia a experiência de página com três métricas de campo — dados
+coletados de usuários reais, não de laboratório. São os \emph{Core Web
+Vitals}:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{LCP} (Largest Contentful Paint): quando o conteúdo principal aparece — alvo $<$ 2,5s;
+  \item \textbf{INP} (Interaction to Next Paint): responsividade às interações — alvo $<$ 200ms;
+  \item \textbf{CLS} (Cumulative Layout Shift): estabilidade visual (elementos que ``pulam'') — alvo $<$ 0,1.
+\end{itemize}
+
+\begin{caixaconceito}
+Cada métrica responde a uma pergunta de experiência: o LCP pergunta ``quanto
+tempo até eu ver o conteúdo?'', o INP pergunta ``a página responde quando eu
+interajo?'', e o CLS pergunta ``as coisas ficam no lugar enquanto carrego?''.
+Uma página pode ser rápida de carregar e ainda assim terrível se os botões
+travarem ou o layout pular a cada imagem que chega.
+\end{caixaconceito}
+
+\begin{caixadica}
+O \textbf{Lighthouse} (DevTools $\rightarrow$ Audits) gera um relatório com
+notas e \emph{oportunidades concretas}. Rode sempre em modo incógnito para
+evitar cache. Core Web Vitals reais vêm do \textbf{CrUX} (dados de usuários
+reais) e de monitoramento de campo (capítulo~\ref{cap:observabilidade}).
+Lighthouse é \emph{laboratório} (mede na sua máquina); CrUX é \emph{campo}
+(mede na internet real). Os dois são necessários: o laboratório diz o que
+otimizar; o campo diz se o usuário sentiu.
+\end{caixadica}
+
+\section{Otimizações de frontend}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{JavaScript}: Server Components (capítulo~\ref{cap:nextjs}), \texttt{next/dynamic} para lazy loading, remover código morto, \texttt{React.lazy} + Suspense;
+  \item \textbf{Imagens}: \texttt{next/image} (AVIF/WebP, \texttt{sizes}, \texttt{priority}), lazy loading nativo, \texttt{loading="lazy"};
+  \item \textbf{Fontes}: \texttt{next/font} com \texttt{font-display: swap} — sem layout shift (CLS);
+  \item \textbf{CSS}: purga de utilitários não usados (Tailwind já faz), evitar CSS enorme inline;
+  \item \textbf{Cache do navegador}: headers de cache corretos e \texttt{ETag}.
+\end{itemize}
+
+\begin{caixaconceito}
+A regra de ouro do frontend: \textbf{entregue menos JavaScript}. Cada
+kilobyte de JS é parseado, compilado e executado no dispositivo do usuário —
+o custo mais caro da web moderna. O modelo de Server Components do
+capítulo~\ref{cap:nextjs} ataca isso na raiz: a maior parte do código nunca
+chega ao navegador.
+\end{caixaconceito}
+
+\section{Otimizações de backend}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Consultas}: índices (capítulo~\ref{cap:postgresql}), evitar N+1 (capítulo~\ref{cap:orms}), paginação correta;
+  \item \textbf{Cache}: Redis para leituras quentes e sessões (capítulo~\ref{cap:arquitetura}); ISR/cache do Next para páginas;
+  \item \textbf{Concorrência}: pool de conexões do banco (\texttt{pg} pool), \texttt{Promise.all} em fetches paralelos;
+  \item \textbf{Streaming}: \texttt{Suspense} no servidor entrega o shell da página antes dos dados;
+  \item \textbf{Edge}: middleware e rotas simples em edge runtimes (menos latência global).
+\end{itemize}
+
+\subsection{Cache em camadas: onde cada resposta mora}
+
+Pense em cache como uma escada de distâncias — cada degrau é mais próximo do
+usuário e mais barato:
+
+\begin{enumerate}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Navegador}: \texttt{Cache-Control} e \texttt{ETag} — o usuário
+  que já visitou não baixa de novo;
+  \item \textbf{CDN/Edge}: respostas estáticas servidas a centenas de
+  quilômetros do servidor;
+  \item \textbf{App (Next.js)}: cache de página e de dados com
+  \texttt{revalidatePath/Tag};
+  \item \textbf{Redis}: leituras quentes (ranking, sessão, busca popular);
+  \item \textbf{PostgreSQL}: o banco já tem seu próprio cache de páginas e
+  buffer pool — por isso índices e queries eficientes importam tanto.
+\end{enumerate}
+
+\begin{caixadica}
+O maior erro de cache é achar que é ``tudo ou nada''. Conteúdo estático
+(imagens, CSS, bundle) merece TTL longo; dados de usuário merecem
+invalidação por evento; listas públicas merecem revalidação periódica. O
+Next.js modela exatamente isso: \texttt{revalidate} por tempo, tag por
+evento, e \texttt{no-store} quando nada pode ficar velho.
+\end{caixadica}
+
+\section{Diagnóstico: encontre o gargalo}
+
+Antes de otimizar, descubra \emph{o que} está lento. O processo:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{DevTools $\rightarrow$ Performance}: grave e analise long tasks, main thread, network waterfall;
+  \item \textbf{Network}: o que pesa? imagens? JS? fontes? requisições em série?
+  \item \textbf{Bundle}: \texttt{npx next build} mostra tamanhos por rota; \texttt{bundle-analyzer} mostra o que está dentro;
+  \item \textbf{Server}: \texttt{EXPLAIN ANALYZE} no banco; logs de query; tempo por rota.
+\end{itemize}
+
+\begin{caixaconceito}
+A ferramenta de diagnóstico mais importante é o \textbf{waterfall}: o gráfico
+de requisições do DevTools. Ele revela os dois padrões que mais destroem
+performance — \emph{bloqueio} (uma requisição segura a próxima) e
+\emph{serialização} (cinco requisições que poderiam ser paralelas rodando em
+fila). Olhe o waterfall antes de tocar em qualquer código.
+\end{caixaconceito}
+
+\begin{lstlisting}[style=livro, language=Bash,
+  caption={Orçamento de performance no CI (Lighthouse CI).},
+  label={list:perf-budget}]
+# .lighthouserc.json
+{
+  "ci": {
+    "collect": { "url": ["http://localhost:3000/"] },
+    "assert": {
+      "assertions": {
+        "categories:performance": ["error", { "minScore": 0.9 }],
+        "categories:accessibility": ["error", { "minScore": 0.95 }],
+        "categories:seo": ["error", { "minScore": 0.95 }]
+      }
+    }
+  }
+}
+\end{lstlisting}
+
+% ============================================================================
+\section{Projeto do capítulo: otimização do SkillHub}
+\label{sec:projeto20}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} levar o SkillHub a LCP $<$ 2,0s, INP $<$ 200ms e CLS $<$ 0,05
+em um relatório Lighthouse com orçamento no CI.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Relatório Lighthouse antes/depois (móvel e desktop) documentado;
+  \item Imagens e fontes otimizadas sem CLS;
+  \item Bundle por rota $<$ 100 kB de JS inicial (gzip);
+  \item Busca com paginação e índices (sem N+1);
+  \item Streaming com Suspense na listagem;
+  \item Lighthouse CI no pipeline com orçamento (capítulo~\ref{cap:cicd});
+  \item Documento final: o que foi otimizado, por quê e o ganho medido.
+\end{itemize}
+\end{caixaprojeto}
+
+\subsection{Passo a passo}
+
+\begin{passos}
+  \item \textbf{Baseline}: rode o Lighthouse em móvel (throttling 4G) e
+  registre as três métricas — este é o seu ``antes'';
+  \item \textbf{Diagnóstico}: abra o waterfall, identifique o maior bloqueio e
+  o maior payload da página inicial;
+  \item \textbf{Frontend}: otimize imagens (\texttt{next/image} com
+  \texttt{sizes}), fontes (\texttt{next/font} com \texttt{swap}) e aplique
+  lazy loading onde fizer sentido;
+  \item \textbf{Backend}: adicione índices às queries da listagem, elimine
+  N+1 com \texttt{include} e adicione paginação;
+  \item \textbf{Streaming}: envolva as seções da listagem em \texttt{Suspense}
+  para entregar o shell primeiro;
+  \item \textbf{Orçamento}: configure o Lighthouse CI no pipeline com as
+  notas mínimas e o bundle analyzer para reprovar crescimentos;
+  \item \textbf{Documentação}: escreva o relatório antes/depois com o ganho
+  medido de cada mudança.
+\end{passos}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Explique LCP, INP e CLS e dê um alvo para cada.
+  \item Por que \texttt{next/image} é melhor que \texttt{<img>}?
+  \item Liste 3 causas de CLS e a correção de cada uma.
+  \item O que é N+1 e por que ele destrói a performance de APIs?
+  \item Como o \texttt{font-display: swap} evita texto invisível?
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Caça ao bundle}: reduza o JS inicial da página de listagem em 40\% (code splitting, remoção de dependências pesadas).
+  \item \textbf{Lazy loading de imagem}: use \texttt{loading="lazy"} + \texttt{decoding="async"} e meça o impacto no LCP.
+  \item \textbf{Cache de API}: adicione \texttt{Cache-Control} e \texttt{ETag} na listagem e meça a redução de tempo.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Perf budget como cultura}: configure o bundle analyzer no CI para reprovar PRs que aumentem o JS em mais de 5 kB, e documente a política.
+  \item \textbf{Análise de campo}: colete Web Vitals reais com \texttt{next/experimental} (ou analytics) de 100 visitas e compare com o laboratório (Lighthouse).
+  \item \textbf{Edge cases}: otimize para uma rede 3G lenta simulada (DevTools throttling) e para um celular de entrada — documente as decisões.
+  \item \textbf{CDN e cache de borda}: configure cache em edge (Vercel/CloudFront) com TTLs por tipo de conteúdo e meça a latência de campo.
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Otimizar sem medir (``acho que está lento'') — meça primeiro, sempre;
+  \item Focar só no LCP e esquecer INP (interatividade) e CLS (estabilidade);
+  \item Lazy loading em tudo (atrasa interações — lazy só para o que está fora da primeira dobra);
+  \item Cache ``eterno'' em páginas dinâmicas (dados defasados);
+  \item Testar performance só em desktop com internet rápida;
+  \item Otimizar o banco antes de olhar o waterfall (o gargalo costuma estar antes);
+  \item ``Premature optimization'': otimizar código que ninguém mediu como lento.
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Meça com Lighthouse/CrUX; metas: LCP 2,5s, INP 200ms, CLS 0,1;
+  \item Frontend: menos JS no servidor, imagens/fontes otimizadas, lazy onde importa;
+  \item Backend: índices, sem N+1, cache em camadas, streaming;
+  \item Orçamento de performance no CI impede regressão;
+  \item Projeto entregue: SkillHub otimizado e medido.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item web.dev — Core Web Vitals: \url{https://web.dev/vitals}
+  \item Lighthouse (documentação): \url{https://developer.chrome.com/docs/lighthouse/}
+  \item Next.js — Otimizações: \url{https://nextjs.org/docs/app/building-your-application/optimizing}
+  \item MDN — Performance: \url{https://developer.mozilla.org/en-US/docs/Web/Performance}
+\end{itemize}

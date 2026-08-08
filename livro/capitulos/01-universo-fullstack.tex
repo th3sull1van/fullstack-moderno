@@ -1,0 +1,378 @@
+% ============================================================================
+% CAPÍTULO 1 — O universo full stack\index{full stack} e o mercado
+% ============================================================================
+\chapter{O Universo Full Stack e o Mercado}
+\label{cap:universo}
+
+\begin{caixaconceito}
+\textbf{Full stack} é a capacidade de construir um produto web de ponta a
+ponta: a interface que o usuário vê (frontend\index{frontend}), a lógica e os dados que rodam
+no servidor (backend\index{backend}), o banco de dados, e ainda o ambiente de implantação
+(devops/cloud) — com qualidade, segurança e performance.
+\end{caixaconceito}
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Explicar o que é um desenvolvedor full stack e por que essa carreira é valorizada;
+  \item Descrever, com dados de mercado, as tecnologias mais usadas em 2025/2026;
+  \item Justificar a stack escolhida para este livro (TypeScript de ponta a ponta);
+  \item Explicar o caminho de uma requisição HTTP\index{HTTP}, do navegador até o servidor e de volta;
+  \item Configurar as ferramentas essenciais: editor, terminal, DevTools e Git;
+  \item Publicar seu primeiro site estático no GitHub Pages (projeto do capítulo).
+\end{objetivos}
+
+\section{O que é desenvolvimento full stack}
+
+Imagine um restaurante. O \textbf{salão} é o que o cliente vê: o cardápio, a
+decoração, o atendimento. A \textbf{cozinha} é onde a comida é preparada: os
+processos, os ingredientes, os estoques. O \textbf{estoque e a contabilidade}
+são os dados que mantêm o negócio de pé. Um restaurante só funciona bem quando
+os três funcionam juntos — e quem entende do sistema inteiro consegue tomar
+decisões melhores.
+
+No desenvolvimento web, a analogia é direta:
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item \textbf{Frontend} (o salão): HTML, CSS e JavaScript\index{JavaScript} executados no
+  navegador. É tudo o que o usuário vê e com o que interage.
+  \item \textbf{Backend} (a cozinha): servidores, APIs, regras de negócio e
+  autenticação. É o código que roda fora do navegador, em um servidor.
+  \item \textbf{Banco de dados} (o estoque): o lugar onde os dados vivem de
+  forma organizada, confiável e consultável.
+  \item \textbf{Devops e cloud} (a infraestrutura): como o sistema é
+  empacotado, testado, implantado e monitorado em produção.
+\end{itemize}
+
+O desenvolvedor full stack transita por todas essas camadas. Ele não precisa
+ser o melhor do mundo em cada uma — precisa \emph{entender o sistema inteiro} e
+ser capaz de produzir valor em qualquer ponto dele.
+
+\begin{caixadica}
+O termo \emph{full stack} não significa ``fazer tudo sozinho''. Significa ter
+visão de sistema: saber conversar com especialistas de frontend, backend,
+dados e infraestrutura na mesma língua. É exatamente essa habilidade que as
+empresas mais procuram em 2026.
+\end{caixadica}
+
+\section{O que os dados dizem: as tecnologias mais usadas}
+
+Este livro não escolhe tecnologias por modismo. A escolha foi baseada em três
+levantamentos independentes e públicos, consultados em agosto de 2026:
+
+\subsection{Pesquisa Stack Overflow 2025}
+A pesquisa anual da Stack Overflow recebeu mais de 49 mil respostas de 177
+países, cobrindo 314 tecnologias \cite{so2025,so2025geral}. Os pontos centrais:
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item \textbf{JavaScript} é a linguagem mais usada do planeta — no topo em
+  praticamente todas as edições desde 2013;
+  \item \textbf{React} é o framework web mais usado (aproximadamente 45\% dos
+  desenvolvedores);
+  \item \textbf{PostgreSQL} é o banco de dados nº 1 (aproximadamente 58\% de
+  adoção), à frente de MySQL, SQLite e MongoDB;
+  \item \textbf{Node.js} lidera entre os runtimes e ambientes de execução de
+  JavaScript (aproximadamente 49\%);
+  \item \textbf{SQL} permanece entre as três tecnologias mais populares em
+  geral — banco de dados é habilidade obrigatória;
+  \item \textbf{TypeScript} segue em ascensão constante ano após ano.
+\end{itemize}
+
+\subsection{Octoverse 2025 (GitHub)}
+O relatório anual do GitHub documentou um marco histórico: em agosto de 2025,
+\textbf{o TypeScript ultrapassou Python e JavaScript} e tornou-se a linguagem
+mais usada do GitHub, a maior plataforma de código do mundo \cite{octoverse2025}.
+A plataforma ganha um novo desenvolvedor a cada segundo (mais de 180 milhões de
+desenvolvedores). O crescimento está fortemente ligado ao avanço da
+Inteligência Artificial: grande parte do código gerado por assistentes de IA é
+escrito em TypeScript/JavaScript — o que torna essa linguagem a mais importante
+para quem quer ser produtivo com IA.
+
+\subsection{State of JavaScript 2024}
+O levantamento da comunidade \cite{stateofjs2024} confirma a mesma direção:
+React\index{React} mantém a liderança entre os frameworks; Vue segue em segundo; e o
+TypeScript se consolidou como padrão de facto para projetos sérios de
+JavaScript.
+
+\subsection{Síntese dos dados}
+\begin{table}[h]
+\centering
+\small
+\caption{As tecnologias mais usadas e a decisão editorial deste livro.
+Fontes: \cite{so2025}, \cite{octoverse2025}, \cite{stateofjs2024}.}
+\label{tab:mercado}
+\begin{tabularx}{\textwidth}{@{}>{\hsize=0.8\hsize\raggedright\arraybackslash}X >{\hsize=1.2\hsize\raggedright\arraybackslash}X >{\hsize=1.0\hsize\raggedright\arraybackslash}X >{\hsize=1.0\hsize\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Camada} & \textbf{Tecnologias líderes} & \textbf{Adoção} & \textbf{Escolha deste livro} \\
+\midrule
+Linguagem & JavaScript / TypeScript & JS nº 1 no SO Survey; TS nº 1 no GitHub & TypeScript \\
+Frontend & React & \textasciitilde 45\% & React + Next.js \\
+Framework full stack & Next.js & Meta-framework React mais usado & Next.js 16 \\
+Estilo & Tailwind CSS & Padrão de mercado & Tailwind v4 \\
+Backend & Node.js\index{Node.js} & \textasciitilde 49\% & Node.js 24 LTS \\
+Banco de dados & PostgreSQL\index{PostgreSQL} & \textasciitilde 58\% & PostgreSQL 18 \\
+ORM & Prisma / Drizzle & Líderes no ecossistema TS & Prisma e Drizzle \\
+Contêineres & Docker & Padrão da indústria & Docker + Compose \\
+CI/CD & GitHub Actions & Integração nativa com GitHub & GitHub Actions \\
+Cloud & AWS & Provedor líder & AWS \\
+Testes & Vitest + Playwright & Padrão moderno TS & Vitest + Playwright \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{caixaconceito}
+\textbf{Por que TypeScript de ponta a ponta?} Uma única linguagem no frontend,
+no backend, nos scripts de infraestrutura e nos testes reduz drasticamente a
+carga cognitiva de quem está aprendendo. Você domina uma sintaxe, um sistema de
+tipos e um ecossistema de pacotes — e constrói o produto inteiro com ela. É o
+caminho com menor atrito entre ``entendi o conceito'' e ``entreguei o sistema''.
+\end{caixaconceito}
+
+\section{Como a web funciona: a jornada de uma requisição}
+
+Antes de escrever código, é preciso entender o palco onde ele vai se apresentar.
+Quando você digita \texttt{https://exemplo.com.br} no navegador, acontece o
+caminho da Figura~\ref{fig:jornada-requisicao} — os passos a seguir detalham
+cada etapa:
+
+\begin{figure}[htbp]
+  \centering
+  \diagramatikz{%
+  \begin{tikzpicture}[
+      box/.style={draw=primaria, fill=azulclaro, rounded corners=2pt,
+        align=center, inner sep=4pt, font=\footnotesize},
+      seta/.style={-{Stealth[length=2.2mm]}, thick, color=secundaria},
+      font=\footnotesize
+    ]
+    \node[box] (u) at (0,0) {Usuário};
+    \node[box] (n) at (3.0,0) {Navegador};
+    \node[box] (s) at (6.1,0) {Servidor};
+    \node[box] (b) at (9.5,0) {Banco de\\dados};
+    \draw[seta] (u) -- node[above] {1. DNS} (n);
+    \draw[seta] (n) -- node[above] {2. HTTPS} (s);
+    \draw[seta] (s) -- node[above] {3. SQL} (b);
+    \draw[seta] (b) to[out=-70,in=-110] node[below] {4. resposta} (s);
+    \draw[seta] (s) to[out=-70,in=-110] node[below] {5. HTML/CSS/JS} (n);
+    \draw[seta] (n) to[out=-70,in=-110] node[below] {6. renderiza} (u);
+  \end{tikzpicture}}
+  \caption{A jornada de uma requisição: ida (1--3) e resposta (4--6).}
+  \label{fig:jornada-requisicao}
+\end{figure}
+
+\begin{passos}
+  \item O navegador pergunta ao \textbf{DNS} (Domain Name System) qual é o
+  endereço IP do domínio \texttt{exemplo.com.br} — como consultar uma agenda
+  telefônica para achar o número de um nome;
+  \item Com o IP em mãos, o navegador abre uma conexão segura (TLS) com o
+  servidor e envia uma \textbf{requisição HTTP} — tipicamente um \texttt{GET}
+  pedindo o documento da página;
+  \item O servidor processa a requisição\index{requisição} e responde com um \textbf{código de
+  status} (\texttt{200 OK}, \texttt{404 Não encontrado}, etc.) e o conteúdo —
+  geralmente HTML, CSS e JavaScript;
+  \item O navegador \textbf{renderiza} o HTML, aplica o CSS e executa o
+  JavaScript, montando a página que você vê;
+  \item Se a página precisa de mais dados (por exemplo, a lista de produtos),
+  o JavaScript faz novas requisições (via \texttt{fetch}) a uma \textbf{API},
+  que lê o banco de dados e devolve JSON.
+\end{passos}
+
+\begin{caixaconceito}
+\textbf{HTTP} (Hypertext Transfer Protocol) é o protocolo de comunicação da
+web. Cada interação é um par requisição--resposta: o cliente pede, o servidor
+responde com um status e um corpo. Você estudará isso a fundo no
+capítulo~\ref{cap:http}.
+\end{caixaconceito}
+
+\begin{caixadica}
+Para ver essa jornada acontecendo ao vivo: abra o \textbf{DevTools} do
+navegador (F12), aba \emph{Rede/Network}, recarregue qualquer página e observe
+as requisições. Cada linha é um pedido HTTP com seu status, tamanho e tempo de
+resposta. Esse é o raio-X da web — e será seu melhor amigo em toda a carreira.
+\end{caixadica}
+
+\section{As ferramentas essenciais}
+
+Um desenvolvedor full stack vive em cinco ferramentas:
+
+\begin{enumerate}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Editor de código} — o VS Code é o padrão de mercado
+  (gratuito, extensível e com suporte nativo a TypeScript);
+  \item \textbf{Terminal} — o ambiente de linha de comando onde você roda
+  Git, Node, npm e Docker. No Windows, o Git Bash (instalado junto com o Git);
+  \item \textbf{DevTools do navegador} — inspeção de HTML/CSS, console de
+  JavaScript, análise de rede e de performance;
+  \item \textbf{Git} — o controle de versão que registra o histórico do seu
+  código (capítulo~\ref{cap:git});
+  \item \textbf{Node.js} — o runtime que executa JavaScript fora do navegador
+  (capítulo~\ref{cap:node}).
+\end{enumerate}
+
+O apêndice~\ref{apendice:instalacao} traz o passo a passo completo de
+instalação e configuração do ambiente, incluindo a verificação de que tudo
+funciona (\texttt{node --version}, \texttt{git --version}).
+
+\begin{caixaarmadilha}
+Erro comum de iniciante: instalar dezenas de ferramentas antes de precisar
+delas. Comece com o mínimo (editor + Git + Node) e instale o resto conforme os
+capítulos pedirem. Ambiente simples = foco no aprendizado.
+\end{caixaarmadilha}
+
+\section{O full stack na indústria: do júnior ao sênior}
+
+A carreira full stack costuma seguir esta progressão:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Júnior}: executa tarefas bem definidas com supervisão; domina
+  o fluxo básico (editar código, rodar, testar, commitar);
+  \item \textbf{Pleno}: entrega features completas de ponta a ponta com
+  autonomia; escreve testes; participa de code review; entende o sistema como um todo;
+  \item \textbf{Sênior}: projeta arquiteturas, lidera decisões técnicas, avalia
+  trade-offs (custo, performance, segurança), orienta outros devs e previne
+  problemas antes que aconteçam.
+\end{itemize}
+
+Este livro é organizado exatamente nessa ordem: os capítulos da Parte~I e~II
+formam o nível júnior; as Partes~III e~IV, o nível pleno; a Parte~V (arquitetura,
+observabilidade, cloud, IA) e o capítulo de carreira, o nível sênior.
+
+\begin{caixadica}
+A Inteligência Artificial mudou o mercado: escrever código está mais fácil, mas
+\emph{entender}, \emph{validar} e \emph{arquitetar} está mais valioso. O
+diferencial profissional de 2026 é a capacidade de julgar o que a IA produz —
+exatamente o que este livro treina com profundidade no capítulo~\ref{cap:ia}.
+\end{caixadica}
+
+% ============================================================================
+\section{Projeto do capítulo: seu portfólio no GitHub Pages}
+\label{sec:projeto1}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} criar sua primeira página profissional — um portfólio
+pessoal — e publicá-la na internet de graça, com o GitHub Pages.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Página acessível em \texttt{https://seuusuario.github.io};
+  \item Contém: título, apresentação, seção de habilidades e contato;
+  \item HTML semântico válido (sem erros de validação);
+  \item Estilo básico em CSS (cores, espaçamento, fonte);
+  \item Publicada via GitHub Pages (branch \texttt{main}, pasta raiz).
+\end{itemize}
+\end{caixaprojeto}
+
+\subsection{Passo a passo}
+
+\begin{passos}
+  \item Crie uma conta gratuita em \url{https://github.com} (se ainda não tiver);
+  \item Crie um repositório público chamado \texttt{seuusuario.github.io}
+  (exatamente esse formato);
+  \item No repositório, adicione os três arquivos abaixo (via \emph{Add file}),
+  ou clone o repositório e trabalhe localmente — veja o capítulo~\ref{cap:git};
+  \item Salve, aguarde alguns segundos e acesse
+  \texttt{https://seuusuario.github.io}.
+\end{passos}
+
+\subsection{O código}
+
+O arquivo principal é o \texttt{index.html} (Listagem~\ref{list:portfolio}):
+
+\lstinputlisting[style=livro, language=HTML,
+  caption={Arquivo \texttt{codigo/cap01-portfolio/index.html} — estrutura do portfólio.},
+  label={list:portfolio}]
+  {\codigopath/cap01-portfolio/index.html}
+
+O CSS (\texttt{style.css}, Listagem~\ref{list:portfolio-css}) dá identidade
+visual com cores, espaçamento e responsividade básica — conceitos que serão
+aprofundados no capítulo~\ref{cap:css}:
+
+\lstinputlisting[style=livro, language=CSS,
+  caption={Arquivo \texttt{codigo/cap01-portfolio/style.css} — estilo do portfólio.},
+  label={list:portfolio-css}]
+  {\codigopath/cap01-portfolio/style.css}
+
+\begin{caixadica}
+O projeto completo — incluindo o \texttt{script.js} que anima o contador de
+caracteres do formulário e o \texttt{README.md} com instruções — está em
+\texttt{codigo/cap01-portfolio/}. Você pode executar localmente com um
+servidor simples: \texttt{npx serve codigo/cap01-portfolio}.
+\end{caixadica}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Explique, com suas palavras, o que diferencia um desenvolvedor
+  frontend, um backend e um full stack.
+  \item Liste as três tecnologias mais usadas segundo a pesquisa Stack
+  Overflow 2025 e a fonte oficial de cada número.
+  \item Descreva o caminho completo de uma requisição HTTP ao acessar um site:
+  do DNS até a renderização.
+  \item O que o DevTools do navegador mostra na aba \emph{Rede}? Por que isso
+  é útil?
+  \item Qual foi o marco histórico registrado pelo Octoverse 2025 e por que
+  ele importa para a sua escolha de linguagem?
+  \item Crie um arquivo \texttt{index.html} mínimo (título, um parágrafo e uma
+  imagem) e abra-o no navegador. Valide-o em \url{https://validator.w3.org}.
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Desafio do repórter:} escolha uma das tecnologias da tabela
+  \ref{tab:mercado} e escreva um parágrafo de 5 linhas, com fonte oficial, sobre
+  por que ela é líder na sua categoria. Salve como \texttt{pesquisa/pesquisa-pessoal.md}.
+  \item \textbf{Desafio do arquiteto:} desenhe (papel ou ferramenta digital) o
+  diagrama de uma aplicação full stack típica com pelo menos 5 camadas e
+  explique cada seta.
+  \item \textbf{Desafio da curiosidade:} abra o DevTools de um site que você
+  usa todos os dias, identifique uma requisição que retornou status \texttt{200}
+  e outra que retornou \texttt{304}. Explique a diferença.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Trade-offs:} compare, em uma tabela, as stacks
+  TypeScript/Next.js, Java/Spring e Python/Django para: (a) velocidade de
+  desenvolvimento, (b) mercado de vagas no Brasil, (c) ecossistema de IA e
+  (d) custo de infraestrutura. Cite pelo menos uma fonte por linha.
+  \item \textbf{Leitura crítica:} acesse a pesquisa Stack Overflow 2025 e
+  identifique uma métrica que possa \emph{enganar} um leitor apressado (por
+  exemplo: ``admirada'' vs.\ ``usada''). Escreva 10 linhas sobre por que
+  interpretar dados de mercado exige cuidado.
+  \item \textbf{Visão de sistema:} um produto precisa de uma funcionalidade de
+  busca. Liste as camadas do sistema (frontend, API, banco, infraestrutura)
+  que são afetadas e, para cada uma, um risco técnico possível.
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Aprender dezenas de tecnologias ao mesmo tempo}: escolher
+  ``a stack da semana'' antes de dominar fundamentos é o erro nº 1 de iniciantes.
+  \item \textbf{Decorar em vez de entender}: memorizar sintaxe sem entender o
+  fluxo da requisição HTTP gera profissionais que travam fora do tutorial.
+  \item \textbf{Ignorar as fontes}: copiar ``tendências'' de redes sociais sem
+  verificar os dados oficiais (Stack Overflow Survey, Octoverse) leva a decisões ruins.
+  \item \textbf{Não publicar nada}: conhecimento sem entrega visível (como o
+  portfólio deste capítulo) não gera oportunidades de carreira.
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Full stack é a visão de sistema: frontend, backend, dados e infraestrutura;
+  \item Os dados de 2025/2026 (SO Survey, Octoverse, State of JS) apontam para
+  JavaScript/TypeScript, React, Next.js, PostgreSQL, Docker e AWS;
+  \item Uma requisição HTTP percorre: DNS → conexão segura → servidor → resposta → renderização;
+  \item As ferramentas essenciais são editor, terminal, DevTools, Git e Node.js;
+  \item O projeto do capítulo — seu portfólio no GitHub Pages — já está
+  publicado na internet: primeiro item do seu currículo técnico.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Stack Overflow Developer Survey 2025: \url{https://survey.stackoverflow.co/2025}
+  \item GitHub Octoverse 2025: \url{https://octoverse.github.com/}
+  \item State of JavaScript 2024: \url{https://2024.stateofjs.com/}
+  \item MDN Web Docs (referência definitiva de HTML, CSS e JS): \url{https://developer.mozilla.org}
+  \item Roadmap oficial da comunidade full stack: \url{https://roadmap.sh/full-stack}
+  \item Validador de HTML do W3C: \url{https://validator.w3.org}
+\end{itemize}

@@ -1,0 +1,360 @@
+% ============================================================================
+% CAPÍTULO 3 — CSS\index{CSS} moderno: layout, responsividade\index{responsividade} e estilo
+% ============================================================================
+\chapter{CSS Moderno: Layout, Responsividade e Estilo}
+\label{cap:css}
+
+\begin{caixaconceito}
+\textbf{CSS} (Cascading Style Sheets) é a linguagem de \emph{apresentação} da
+web. Se o HTML é o esqueleto, o CSS é a pele, a roupa e o cenário: cores,
+tipografia, espaçamento, posicionamento e comportamento visual.
+\end{caixaconceito}
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Aplicar o modelo de cascata\index{cascata}, herança e especificidade\index{especificidade} sem sustos;
+  \item Dominar o \emph{box model} e o \texttt{box-sizing};
+  \item Construir layouts com \textbf{Flexbox} e \textbf{Grid};
+  \item Criar páginas responsivas com \emph{mobile-first} e media queries\index{media queries};
+  \item Organizar CSS com variáveis, BEM e boas práticas;
+  \item Entregar o projeto do capítulo: uma landing page responsiva.
+\end{objetivos}
+
+\section{Como o CSS funciona: cascata, herança e especificidade}
+
+Três forças decidem qual regra vence quando duas regras conflitam:
+
+\begin{enumerate}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Especificidade}: quanto mais específico o seletor, maior o peso.
+  \texttt{\#id} $>$ \texttt{.classe} $>$ \texttt{tag}. Na prática, 99\% do tempo
+  você usará classes;
+  \item \textbf{Cascata}: com a mesma especificidade, vence a regra declarada
+  por último no arquivo;
+  \item \textbf{Herança}: propriedades de texto (cor, fonte) são herdadas pelos
+  filhos; propriedades de layout (margin, padding) não são.
+\end{enumerate}
+
+\begin{lstlisting}[style=livro, language=CSS,
+  caption={Cascata e especificidade na prática.}, label={list:css-cascata}]
+/* 1. Regra por tag — peso baixo */
+button { background-color: #cccccc; }
+
+/* 2. Regra por classe — peso maior */
+.botao-primario { background-color: #1f4e79; }
+
+/* 3. Regra com !important — só em último caso! */
+button { background-color: red !important; }
+\end{lstlisting}
+
+\begin{caixaarmadilha}
+\texttt{!important} quebra a cascata e vira uma bomba-relógio de manutenção.
+Use-o apenas para sobrepor estilos de bibliotecas de terceiros — e mesmo assim,
+prefira especificidade bem escrita.
+\end{caixaarmadilha}
+
+\section{O box model: tudo é uma caixa}
+
+Todo elemento HTML é uma caixa com quatro camadas (de dentro para fora):
+\textbf{conteúdo} $\rightarrow$ \textbf{padding} (respiro interno)
+$\rightarrow$ \textbf{border} $\rightarrow$ \textbf{margin} (espaço externo).
+
+\begin{lstlisting}[style=livro, language=CSS,
+  caption={Box model com \texttt{box-sizing: border-box}.}, label={list:css-box}]
+* {
+  box-sizing: border-box; /* largura inclui padding e borda */
+}
+
+.cartao {
+  width: 300px;
+  padding: 16px;
+  border: 1px solid #ddd;
+  margin: 12px auto;
+}
+\end{lstlisting}
+
+\begin{caixaconceito}
+Com \texttt{box-sizing: border-box}, \texttt{width: 300px} é o tamanho
+\emph{final} da caixa (conteúdo + padding + borda). Sem ele, o CSS soma tudo e
+as caixas ``estouram'' — a causa nº 1 de layouts quebrados em iniciantes.
+O reset universal (\texttt{* \{ box-sizing: border-box; \}}) é padrão de mercado.
+\end{caixaconceito}
+
+\section{Flexbox: alinhamento em uma dimensão}
+
+Flexbox\index{Flexbox} organiza itens em \emph{uma linha ou uma coluna} e resolve 90\% dos
+problemas de alinhamento do dia a dia.
+
+\begin{lstlisting}[style=livro, language=CSS,
+  caption={Flexbox: centralizar e distribuir.}, label={list:css-flex}]
+.navbar {
+  display: flex;
+  justify-content: space-between; /* eixo principal */
+  align-items: center;            /* eixo transversal */
+  gap: 1rem;
+}
+
+.menu {
+  display: flex;
+  gap: 1.5rem;
+  list-style: none;
+}
+
+.centro {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+\end{lstlisting}
+
+\begin{caixadica}
+Os três comandos que você mais vai digitar na vida: \texttt{display: flex},
+\texttt{justify-content} (eixo principal) e \texttt{align-items} (eixo
+transversal). Memorize o \textbf{jogo Flexbox Froggy}
+(\url{https://flexboxfroggy.com}) para internalizar de vez.
+\end{caixadica}
+
+\section{Grid: layout em duas dimensões}
+
+Grid\index{Grid} organiza itens em \emph{linhas e colunas simultaneamente} — perfeito para
+a estrutura geral da página (header, sidebar, main, footer) e para grades de
+cards.
+
+\begin{lstlisting}[style=livro, language=CSS,
+  caption={Grid responsivo sem media query (auto-fit + minmax).},
+  label={list:css-grid}]
+.grade-produtos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.layout-pagina {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-areas:
+    "header header"
+    "sidebar main"
+    "footer footer";
+}
+\end{lstlisting}
+
+\begin{caixaconceito}
+\texttt{repeat(auto-fit, minmax(220px, 1fr))} cria colunas de no mínimo 220px
+que crescem igualmente e \emph{quebram} automaticamente conforme a tela
+encolhe — responsividade ``de graça'', sem uma única media query.
+\end{caixaconceito}
+
+\section{Cores, tipografia e espaçamento}
+
+\begin{lstlisting}[style=livro, language=CSS,
+  caption={Sistema de design com variáveis CSS.}, label={list:css-variaveis}]
+:root {
+  --cor-primaria: #1f4e79;
+  --cor-secundaria: #2e86ab;
+  --cor-texto: #22313f;
+  --espaco-pequeno: 0.5rem;
+  --espaco-medio: 1rem;
+  --raio: 8px;
+  --fonte-corpo: "Inter", system-ui, sans-serif;
+}
+
+body {
+  font-family: var(--fonte-corpo);
+  color: var(--cor-texto);
+  line-height: 1.6;
+}
+
+.cabecalho {
+  background-color: var(--cor-primaria);
+  padding: var(--espaco-medio);
+  border-radius: var(--raio);
+}
+\end{lstlisting}
+
+\begin{caixadica}
+Use \textbf{unidades relativas}: \texttt{rem} (baseado no tamanho da raiz) para
+fontes, \texttt{em} para propriedades que devem escalar com o elemento,
+\texttt{\%} e \texttt{fr} para layouts. Evite \texttt{px} em fontes e evite
+\texttt{pt} em telas. Isso garante que o texto respeite o zoom do usuário.
+\end{caixadica}
+
+\section{Responsividade: mobile-first}
+
+A regra de ouro: \textbf{escreva o CSS para o celular primeiro} e vá
+adicionando melhorias para telas maiores com media queries
+(\texttt{min-width}). Isso força decisões simples desde o início e reduz
+drasticamente o CSS total.
+
+\begin{lstlisting}[style=livro, language=CSS,
+  caption={Estratégia mobile-first com media query.}, label={list:css-media}]
+/* Base: celular (uma coluna, empilhado) */
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* A partir de 768px: tabelas e desktops */
+@media (min-width: 768px) {
+  .menu {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+}
+\end{lstlisting}
+
+\begin{caixaarmadilha}
+Não fixe larguras (\texttt{width: 900px}) em containers: use
+\texttt{max-width: 960px; margin-inline: auto}. Assim a página se adapta a
+qualquer tela sem barras de rolagem horizontais — o sintoma clássico de layout
+quebrado.
+\end{caixaarmadilha}
+
+\section{Pseudo-classes, transições e o toque final}
+
+\begin{lstlisting}[style=livro, language=CSS,
+  caption={Interações: hover, foco e transição.}, label={list:css-interacao}]
+.botao {
+  background-color: var(--cor-primaria);
+  color: #ffffff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  transition: background-color 200ms ease, transform 200ms ease;
+}
+
+.botao:hover {
+  background-color: var(--cor-secundaria);
+}
+
+.botao:focus-visible {
+  outline: 3px solid var(--cor-secundaria);
+  outline-offset: 2px;
+}
+
+.card:nth-child(even) {
+  background-color: #f7f9fb;
+}
+\end{lstlisting}
+
+\begin{caixaconceito}
+\texttt{:hover} é para mouse, \texttt{:focus} é para teclado. Use sempre
+\texttt{:focus-visible} para anéis de foco — ele só aparece quando a navegação
+é por teclado, sem poluir o visual de quem usa mouse. Nunca remova o outline
+sem fornecer um substituto acessível.
+\end{caixaconceito}
+
+\section{Arquitetura CSS: organização que escala}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Variáveis} (\texttt{--nome}) no \texttt{:root} centralizam o
+  design system;
+  \item \textbf{BEM} (Block\_\_Element--Modifier) dá nomes previsíveis:
+  \texttt{.botao}, \texttt{.botao\_\_icone}, \texttt{.botao--primario};
+  \item \textbf{Arquivos organizados}: \texttt{reset.css}, \texttt{variaveis.css},
+  \texttt{componentes/}, \texttt{layout/} — ou um único arquivo em projetos pequenos;
+  \item \textbf{Metodologias}: você estudará Tailwind CSS (utility-first) a
+  fundo no capítulo~\ref{cap:estilizacao} — a abordagem dominante do mercado em 2026.
+\end{itemize}
+
+% ============================================================================
+\section{Projeto do capítulo: landing page responsiva}
+\label{sec:projeto3}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} criar a landing page de um produto fictício — um app de
+finanças pessoais chamado \emph{OrçaFácil} — com hero, seção de recursos em
+grid, planos e rodapé.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item \emph{Mobile-first}: perfeita no celular e no desktop (teste em ambos);
+  \item Hero com título, subtítulo, CTA e imagem;
+  \item Seção de recursos em Grid (\texttt{auto-fit/minmax});
+  \item Seção de planos em Flexbox com destaque no plano principal;
+  \item Variáveis CSS para o design system;
+  \item Sem barra de rolagem horizontal em nenhuma largura.
+\end{itemize}
+\end{caixaprojeto}
+
+O HTML e o CSS do projeto estão em \texttt{codigo/cap03-landing/} —
+\texttt{index.html} e \texttt{style.css}. O trecho essencial do layout
+(Listagem~\ref{list:landing-css}):
+
+\lstinputlisting[style=livro, language=CSS, firstline=1, lastline=40,
+  caption={Trecho do layout da landing page (Grid + Flexbox).}, label={list:landing-css}]
+  {\codigopath/cap03-landing/style.css}
+
+\begin{caixadica}
+Teste a responsividade no DevTools: clique no ícone de dispositivo (Ctrl+Shift+M)
+e arraste a largura de 320px até 1440px. Todo desenvolvedor full stack faz esse
+teste dezenas de vezes por dia.
+\end{caixadica}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Explique, com um exemplo próprio, a diferença entre especificidade e cascata.
+  \item O que acontece com um elemento de \texttt{width: 300px} sem
+  \texttt{box-sizing: border-box} quando recebe \texttt{padding: 30px}? E com ele?
+  \item Centralize um botão no centro exato da tela usando Flexbox.
+  \item Crie uma grade de 3 colunas que vira 1 coluna no celular, sem media query.
+  \item Escreva o CSS de um cartão com sombra, borda arredondada e transição de elevação no hover.
+  \item Qual a diferença entre \texttt{em} e \texttt{rem}? Dê um caso de uso para cada.
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Barra de progresso}: crie uma barra de progresso animada usando
+  \texttt{width} em \texttt{\%} e uma transição.
+  \item \textbf{Navbar fixa}: navbar fixa no topo com \texttt{position: sticky},
+  sombra ao rolar e links com \texttt{:hover} estilizado.
+  \item \textbf{Tema claro/escuro}: use \texttt{prefers-color-scheme} para
+  alternar variáveis de cor automaticamente.
+  \item \textbf{Desafio Froggy}: complete o Flexbox Froggy e o Grid Garden
+  (\url{https://cssgridgarden.com}) até o fim.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Comparativo de métodos}: implemente a mesma seção de cards de
+  3 formas — Flexbox, Grid e (somente conceitualmente) float — e escreva 8
+  linhas sobre quando cada uma é a escolha certa.
+  \item \textbf{Contraste e acessibilidade}: meça o contraste do seu landing
+  page com a ferramenta do Lighthouse e ajuste até passar em AAA no texto grande.
+  \item \textbf{Animações com \texttt{@keyframes}:} adicione uma animação de
+  entrada suave ao hero, respeitando \texttt{prefers-reduced-motion}.
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Esquecer o reset de \texttt{box-sizing} (layouts estouram);
+  \item Usar \texttt{px} fixos em fontes (quebra o zoom e a acessibilidade);
+  \item Margens negativas e \texttt{position: absolute} como ``gambiarra'' de layout;
+  \item Escrever CSS \emph{desktop-first} (fica com 3x mais código);
+  \item Esquecer o estado de \texttt{:focus-visible} (teclado fica invisível).
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item CSS = apresentação; cascata + especificidade + herança decidem conflitos;
+  \item Box model\index{box model} + \texttt{box-sizing: border-box} = layout previsível;
+  \item Flexbox resolve uma dimensão; Grid resolve duas;
+  \item \texttt{auto-fit/minmax} = responsividade sem media queries;
+  \item Mobile-first com \texttt{min-width} é o padrão da indústria;
+  \item Variáveis CSS e BEM organizam projetos que crescem.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item MDN — CSS: \url{https://developer.mozilla.org/pt-BR/docs/Web/CSS}
+  \item MDN — Guia de Flexbox: \url{https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout}
+  \item MDN — Guia de Grid: \url{https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout}
+  \item CSS-Tricks — Guia completo de Flexbox: \url{https://css-tricks.com/snippets/css/a-guide-to-flexbox/}
+  \item Flexbox Froggy (prática): \url{https://flexboxfroggy.com}
+\end{itemize}

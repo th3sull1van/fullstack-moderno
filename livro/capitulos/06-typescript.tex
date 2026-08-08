@@ -1,0 +1,564 @@
+% ============================================================================
+% CAPÍTULO 6 — TypeScript\index{TypeScript}
+% Texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{TypeScript: Tipos para Código que Escala}
+\label{cap:typescript}
+
+\begin{caixaconceito}
+\textbf{TypeScript} é um superconjunto tipado de JavaScript: todo JavaScript
+válido é TypeScript válido. Ele adiciona \emph{tipos estáticos} que são
+removidos na compilação, deixando JavaScript puro para o navegador — e, desde
+agosto de 2025, é a linguagem mais usada do GitHub \cite{octoverse2025}.
+\end{caixaconceito}
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Explicar por que tipos estáticos transformam a forma de programar;
+  \item Configurar um projeto TypeScript com \texttt{tsconfig.json} em \emph{strict mode};
+  \item Tipar variáveis, funções, objetos e arrays com inferência e anotações;
+  \item Modelar domínios com \texttt{interface}, \texttt{type}, unions e literals;
+  \item Escrever \emph{generics} reutilizáveis e fazer \emph{narrowing} seguro;
+  \item Aplicar tipos a código de DOM e a respostas de APIs;
+  \item Entregar o projeto do capítulo: uma biblioteca de validação tipada.
+\end{objetivos}
+
+\section{Por que tipos? O custo do JavaScript sem rede de segurança}
+
+JavaScript é uma linguagem \emph{dinâmica}: uma função aceita qualquer valor,
+e o erro só aparece quando o dado errado chega — muitas vezes em produção, com
+um usuário real na frente. O TypeScript move esse erro para o \emph{tempo de
+compilação}: o editor marca o problema em vermelho \emph{antes} de você rodar.
+
+Pense em tipos como a \emph{planta do prédio} antes da construção: você
+descobre que a porta não cabe na parede no papel, e não depois de assentar os
+tijolos. Em um projeto com milhares de arquivos — e com assistentes de IA
+gerando código a cada tecla —, tipos são a diferença entre refatorar com
+confiança e refatorar com medo.
+
+\begin{caixadica}
+O editor (VS Code) usa os tipos para dar \emph{autocomplete}, renomear
+símbolos com segurança e mostrar documentação na hora. Quem programa com
+TypeScript ``anda de bicicleta com rodinhas'' — mas as rodinhas são a planta
+do prédio: elas impedem a queda e documentam o projeto.
+\end{caixadica}
+
+\section{Instalação e configuração}
+
+Crie uma pasta para o projeto e rode:
+
+\begin{lstlisting}[style=livro, language=Bash,
+  caption={Iniciando um projeto TypeScript.}, label={list:ts-init}]
+mkdir tipos-na-pratica && cd tipos-na-pratica
+npm init -y
+npm install -D typescript @types/node
+npx tsc --init              # gera o tsconfig.json
+\end{lstlisting}
+
+O comando \texttt{tsc --init} gera um \texttt{tsconfig.json} com dezenas de
+opções comentadas. O coração da configuração é o \emph{strict mode}:
+
+\begin{lstlisting}[style=livro, language=JSON,
+  caption={Opções essenciais do tsconfig.json.}, label={list:ts-config}]
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"]
+}
+\end{lstlisting}
+
+\begin{caixadica}
+Sempre mantenha \texttt{"strict": true}. É ele que liga
+\texttt{strictNullChecks} — a opção que elimina a classe inteira de bugs de
+\texttt{null} e \texttt{undefined} que assombra o JavaScript. Em projetos
+legados sem strict\index{strict}, a migração começa ligando essa opção e corrigindo os
+erros um a um.
+\end{caixadica}
+
+\begin{caixaconceito}
+\textbf{Como o TypeScript executa?} Ele \emph{compila} para JavaScript puro: os
+tipos são apagados (``type erasure'') e o resultado roda em qualquer runtime.
+Por isso \texttt{noEmit: true} é comum em projetos que delegam a execução a
+ferramentas (Vite, Next.js, Node com type stripping): o \texttt{tsc} serve
+apenas para \emph{checar} tipos.
+\end{caixaconceito}
+
+\section{Tipos básicos e inferência}
+
+O TypeScript \emph{infere} tipos quando você não anota: ele lê o valor inicial
+e deduz o tipo. A inferência é a base de toda a experiência — você escreve
+JavaScript e ganha tipos ``de graça'':
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Inferência e anotações explícitas.}, label={list:ts-basico}]
+// Inferência: o TypeScript descobre o tipo sozinho
+let nome = "Ana";          // string
+let idade = 28;            // number
+let ativo = true;          // boolean
+
+// Erro de inferência: tentar mudar o tipo quebra na hora
+// nome = 42;              // Erro: type 'number' is not assignable to 'string'
+
+// Anotação explícita: útil em parâmetros, retornos e fronteiras
+function calcularTotal(valor: number, desconto: number): number {
+  return valor * (1 - desconto);
+}
+
+// Tipos primitivos completos
+const texto: string = "olá";
+const numero: number = 19.9;
+const ligado: boolean = true;
+const nulo: null = null;
+let indefinido: undefined;
+const simbolo: symbol = Symbol("id");
+const grande: bigint = 9007199254740993n;
+\end{lstlisting}
+
+\begin{caixadica}
+Regra prática: \emph{anote as fronteiras, infira o interior}. Anote
+parâmetros de função, retornos de APIs e variáveis sem valor inicial; deixe a
+inferência cuidar do resto. Anotar tudo é ruído; anotar nada é imprudência.
+\end{caixadica}
+
+\section{Arrays, objetos e tuplas}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Arrays, objetos e tuplas tipados.}, label={list:ts-colecoes}]
+// Arrays: duas sintaxes equivalentes
+const numeros: number[] = [1, 2, 3];
+const nomes: Array<string> = ["Ana", "Bia"];
+
+// Objetos: shape inline
+const usuario: { nome: string; idade: number } = {
+  nome: "Ana",
+  idade: 28,
+};
+
+// Tuplas: array com posições e tipos fixos
+const parCoordenadas: [number, number] = [-23.55, -46.63];
+
+// readonly: imutabilidade no nível do tipo
+const config: readonly string[] = ["produção"];
+// config.push("dev"); // Erro: property 'push' does not exist
+\end{lstlisting}
+
+\begin{caixaconceito}
+\textbf{Structural typing}: o TypeScript compara \emph{estruturas}, não nomes.
+Se dois objetos têm o mesmo shape, eles são compatíveis — mesmo que venham de
+interfaces diferentes. Isso é o que permite tipar APIs de terceiros sem
+herança, e é diferente do \emph{nominal typing} de linguagens como Java.
+\end{caixaconceito}
+
+\section{\texttt{interface} vs \texttt{type}: modelando o domínio}
+
+A decisão mais comum do dia a dia: quando usar \texttt{interface} e quando
+usar \texttt{type}?
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={interface, type e composição.}, label={list:ts-interface}]
+// interface: contrato extensível (herança, implementação)
+interface Usuario {
+  id: number;
+  nome: string;
+  email: string;
+  ativo?: boolean;          // propriedade opcional
+  readonly criadoEm: Date;  // propriedade somente leitura
+}
+
+// type: composição e unions
+type Papel = "admin" | "editor" | "leitor";
+type Id = string | number;
+
+interface Membro extends Usuario {
+  papel: Papel;
+  permissoes: string[];
+}
+
+// Intersecção com type
+type MembroCompleto = Usuario & { papel: Papel };
+
+const ana: Membro = {
+  id: 1,
+  nome: "Ana Souza",
+  email: "ana@exemplo.com",
+  papel: "editor",
+  permissoes: ["ler", "escrever"],
+  criadoEm: new Date(),
+};
+\end{lstlisting}
+
+\begin{caixaconceito}
+\texttt{interface} é melhor para \emph{contratos que se estendem}
+(\texttt{extends}, \texttt{implements}, \emph{declaration merging}); \texttt{type}
+é melhor para \emph{composições} (unions, intersecções, tipos utilitários,
+tuplas nomeadas). Ambos coexistem; times modernos escolhem um padrão e seguem
+a convenção — o importante é a consistência.
+\end{caixaconceito}
+
+\section{Unions, literals e narrowing}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Unions, literals e narrowing com segurança.}, label={list:ts-union}]
+// Union de literais: o valor só pode ser um dos listados
+type StatusPedido = "pendente" | "pago" | "enviado" | "entregue";
+
+function descrever(status: StatusPedido): string {
+  // narrowing: o TypeScript restringe o tipo em cada branch
+  switch (status) {
+    case "pendente":
+      return "Aguardando pagamento";
+    case "pago":
+      return "Pagamento confirmado";
+    case "enviado":
+      return "A caminho";
+    case "entregue":
+      return "Entregue";
+  }
+}
+
+// Union de tipos: string OU number
+function formatarId(id: string | number): string {
+  if (typeof id === "string") {
+    return id.toUpperCase();      // aqui id é string
+  }
+  return id.toFixed(0);           // aqui id é number
+}
+
+// Narrowing com in / instanceof
+interface Carro { rodas: 4; motor: string }
+interface Moto { rodas: 2 }
+
+function ehCarro(veiculo: Carro | Moto): veiculo is Carro {
+  return "motor" in veiculo;
+}
+\end{lstlisting}
+
+\begin{caixaconceito}
+\textbf{Narrowing} é o processo de restringir o tipo de uma variável dentro de
+um bloco: \texttt{typeof}, \texttt{instanceof}, \texttt{in}, \texttt{switch}
+e comparações com literals. O TypeScript acompanha o fluxo do código e sabe —
+em cada linha — qual tipo é possível. É assim que você transforma ``qualquer
+coisa'' em ``exatamente o que preciso''.
+\end{caixaconceito}
+
+\section{Discriminated unions: o padrão de modelagem mais poderoso}
+
+Quando objetos têm uma propriedade \emph{discriminante} (geralmente
+\texttt{tipo}), o narrowing\index{narrowing} funciona por \texttt{switch} completo:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Discriminated union para resultados de operações.},
+  label={list:ts-discriminated}]
+type Resposta<T> =
+  | { tipo: "sucesso"; dados: T; tempo: number }
+  | { tipo: "erro"; mensagem: string; codigo: number };
+
+function tratar<T>(resposta: Resposta<T>): string {
+  switch (resposta.tipo) {
+    case "sucesso":
+      // aqui o TypeScript SABE que existe resposta.dados
+      return `OK em ${resposta.tempo}ms com ${JSON.stringify(resposta.dados)}`;
+    case "erro":
+      return `Falha ${resposta.codigo}: ${resposta.mensagem}`;
+  }
+}
+\end{lstlisting}
+
+\begin{caixadica}
+Discriminated unions são a forma padrão de modelar \emph{resultados de
+operações}, \emph{estados de UI} (carregando/sucesso/erro) e \emph{mensagens
+de sistemas distribuídos}. Você os verá em bibliotecas profissionais e em
+entrevistas — domine este padrão.
+\end{caixadica}
+
+\section{Generics: código que se adapta ao tipo}
+
+Generics\index{generics} permitem escrever uma função que funciona \emph{para qualquer tipo},
+preservando o tipo de entrada na saída:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Generics: um único código, todos os tipos.}, label={list:ts-generic}]
+function primeiroItem<T>(lista: T[]): T | undefined {
+  return lista[0];
+}
+
+const numero = primeiroItem([10, 20, 30]);     // number | undefined
+const nome = primeiroItem(["ana", "bia"]);     // string | undefined
+
+// Dois parâmetros de tipo
+function chavear<Chave, Valor>(chave: Chave, valor: Valor): Map<Chave, Valor> {
+  const mapa = new Map<Chave, Valor>();
+  mapa.set(chave, valor);
+  return mapa;
+}
+
+// Constraints: T precisa ter certa forma
+function tamanhoDaChave<T extends { id: number }>(item: T): number {
+  return String(item.id).length;
+}
+
+// Arrow function genérica
+const identidade = <T,>(x: T): T => x;
+\end{lstlisting}
+
+\begin{caixaconceito}
+Um \textbf{generic} (\texttt{<T>}) é um ``buraco de tipo'' que o compilador
+preenche em cada chamada. O poder está no \emph{flow}: o tipo de entrada
+\emph{flui} para a saída, então \texttt{primeiroItem([10])} devolve
+\texttt{number}, não \texttt{unknown}. Sem isso, você teria que lançar
+\texttt{as number} — uma mentira para o compilador.
+\end{caixaconceito}
+
+\section{Tipos utilitários nativos}
+
+O TypeScript traz utilitários prontos que derivam novos tipos de tipos
+existentes — você os usará diariamente:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Os utilitários de tipo mais usados.}, label={list:ts-utilitarios}]
+interface Produto {
+  id: number;
+  nome: string;
+  preco: number;
+  descricao: string;
+}
+
+type SemDescricao = Omit<Produto, "descricao">;   // remove campos
+type SomenteBasico = Pick<Produto, "id" | "nome">; // mantém campos
+type Parcial = Partial<Produto>;                    // tudo opcional
+type Imutavel = Readonly<Produto>;                  // tudo readonly
+type Requerido = Required<Partial<Produto>>;        // tudo obrigatório
+
+// Para APIs: o que o cliente envia vs o que o servidor devolve
+type CriarProduto = Omit<Produto, "id">;   // POST body
+type ProdutoExibido = Pick<Produto, "id" | "nome" | "preco">; // GET response
+
+// Tipos condicionais úteis
+type ElementoOuArray<T> = T extends unknown[] ? T[number] : T;
+type N = ElementoOuArray<number[]>;   // number
+type S = ElementoOuArray<string>;     // string
+\end{lstlisting}
+
+\section{Tipos para DOM e para APIs}
+
+O TypeScript conhece o DOM: \texttt{document.querySelector} já retorna os
+tipos certos (com \texttt{null} possível!), e \texttt{instanceof} faz o
+narrowing:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={DOM tipado e cast seguro.}, label={list:ts-dom}]
+// querySelector tipado via generic
+const campo = document.querySelector<HTMLInputElement>("#email");
+if (campo) {
+  // aqui campo é HTMLInputElement, não null
+  campo.value = campo.value.trim();
+}
+
+// Eventos tipados
+formulario.addEventListener("submit", (evento) => {
+  evento.preventDefault();
+  const dados = new FormData(evento.currentTarget as HTMLFormElement);
+});
+
+// Para APIs externas, defina o contrato na borda
+interface GithubUser {
+  login: string;
+  name: string | null;
+  public_repos: number;
+}
+
+async function buscarUsuario(login: string): Promise<GithubUser> {
+  const resposta = await fetch(`https://api.github.com/users/${login}`);
+  if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+  return (await resposta.json()) as GithubUser; // contrato na fronteira
+}
+\end{lstlisting}
+
+\begin{caixaarmadilha}
+O cast \texttt{as GithubUser} acima é um \emph{contrato assumido}: se a API
+mudar o formato, o TypeScript não vai reclamar. Para dados que vêm de fora
+(APIs, JSON, formulários), a validação \emph{em runtime} é obrigatória — você
+usará Zod no capítulo~\ref{cap:orms} e nas Server Actions do
+capítulo~\ref{cap:fullstack}. A regra: \emph{tipos na compilação, validação na
+borda}.
+\end{caixaarmadilha}
+
+\section{O que \emph{não} fazer com \texttt{any}}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \texttt{any} desliga a rede de segurança — o valor ``cai'' para JavaScript puro;
+  \item \texttt{as any} em cadeia é a versão ``cala a boca, compilador'' — sempre perde informação;
+  \item \texttt{unknown} é o substituto seguro: força você a fazer narrowing antes de usar;
+  \item Em código legado, migre \texttt{any} $\rightarrow$ \texttt{unknown} $\rightarrow$ tipo real, progressivamente.
+\end{itemize}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={any vs unknown: a diferença que salva.}, label={list:ts-any}]
+function comAny(x: any) {
+  return x.nome.toUpperCase(); // compila — e explode se x for null
+}
+
+function comUnknown(x: unknown) {
+  // x.nome // Erro: property 'nome' does not exist on type 'unknown'
+  if (typeof x === "object" && x !== null && "nome" in x) {
+    const obj = x as { nome: string };
+    return obj.nome.toUpperCase();
+  }
+  return "valor desconhecido";
+}
+\end{lstlisting}
+
+% ============================================================================
+\section{Projeto do capítulo: biblioteca de validação tipada}
+\label{sec:projeto6}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} construir uma pequena biblioteca de validação de
+formulários — \texttt{valida.ts} — que retorna erros tipados por campo, com
+regras encadeáveis (obrigatório, e-mail, mínimo/máximo de caracteres, regex).
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item \texttt{strict: true} e \texttt{tsc --noEmit} sem erros;
+  \item API encadeável: \texttt{v.campo("nome").obrigatorio().minimo(3).maximo(80)};
+  \item Resultado tipado: \texttt{\{ valido: boolean; erros: Record<string, string> \}};
+  \item Generic no validador de regex e nos campos;
+  \item Pelo menos 6 testes unitários — até o capítulo~\ref{cap:testes}, valide
+  o validador com \texttt{node --test} (nativo, sem configuração); a partir de
+  lá, portado para Vitest;
+  \item Integração opcional: validar o formulário de contato do portfólio (capítulo~\ref{cap:universo}).
+\end{itemize}
+\end{caixaprojeto}
+
+O esqueleto da biblioteca (Listagem~\ref{list:ts-validador}):
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Núcleo do validador encadeável.}, label={list:ts-validador}]
+type Regra = (valor: string) => string | null; // null = passou
+
+class Campo {
+  private regras: Regra[] = [];
+
+  obrigatorio(): this {
+    this.regras.push((v) => (v.trim() ? null : "Campo obrigatório"));
+    return this;
+  }
+
+  minimo(n: number): this {
+    this.regras.push((v) =>
+      v.trim().length >= n ? null : `Mínimo de ${n} caracteres`,
+    );
+    return this;
+  }
+
+  email(): this {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    this.regras.push((v) => (re.test(v.trim()) ? null : "E-mail inválido"));
+    return this;
+  }
+
+  validar(valor: string): string | null {
+    for (const regra of this.regras) {
+      const erro = regra(valor);
+      if (erro) return erro;
+    }
+    return null;
+  }
+}
+
+export function campo(): Campo {
+  return new Campo();
+}
+
+// Uso:
+// const erro = campo().obrigatorio().minimo(3).maximo(80).validar("ab");
+// console.log(erro); // "Mínimo de 3 caracteres"
+\end{lstlisting}
+
+\begin{caixadica}
+O padrão \emph{fluent interface} (``encadeável'') acima é o mesmo usado por
+Zod, Prisma e tantas bibliotecas profissionais: cada método retorna
+\texttt{this} para permitir o encadeamento, e o tipo de retorno é preservado.
+Você acabou de construir, na prática, um mini-Zod.
+\end{caixadica}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Qual a diferença entre JavaScript e TypeScript? O que acontece com os tipos na compilação?
+  \item O que faz \texttt{strictNullChecks} e por que ele é importante?
+  \item Escreva a interface\index{interface} de um \texttt{Produto} (id, nome, preco, emEstoque) e um array tipado dela.
+  \item Crie um union type \texttt{FormaDePagamento} com 3 valores e uma função que o trate com narrowing.
+  \item Escreva um generic \texttt{duplicar(lista)} que retorna a lista com os elementos em dobro.
+  \item Explique a diferença entre \texttt{interface} e \texttt{type} e dê um caso de uso para cada.
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Utilitários na prática}: use \texttt{Pick}, \texttt{Omit}, \texttt{Partial} e \texttt{Readonly} para derivar 4 tipos novos de \texttt{Usuario} e explique cada um.
+  \item \textbf{Discriminated union}: modele \texttt{Resposta} como
+  \texttt{\{ tipo: "sucesso"; dados: T \} | \{ tipo: "erro"; mensagem: string \}}
+  e escreva uma função que trate os dois casos com narrowing.
+  \item \textbf{API tipada}: defina os tipos da resposta de uma API pública
+  (ex.: GitHub) e faça um \texttt{fetch} com o resultado tipado e validado.
+  \item \textbf{Validador completo}: estenda o \texttt{valida.ts} com
+  \texttt{.regex(re)}, \texttt{.maximo(n)} e \texttt{.correspondente(outroCampo)}
+  e escreva os testes.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Tipos condicionais}: implemente
+  \texttt{type ElementoOuArray<T> = T extends unknown[] ? T[number] : T;} e
+  explique onde tipos condicionais aparecem em bibliotecas reais (pistas:
+  \texttt{Parameters}, \texttt{ReturnType}).
+  \item \textbf{Mapeamento de tipos}: crie, na mão, um tipo que transforma
+  todas as propriedades de uma interface em \emph{opcionais} (como o
+  \texttt{Partial} nativo), usando \texttt{keyof} e \texttt{in}.
+  \item \textbf{Segurança na fronteira}: compare validação \emph{em tempo de
+  compilação} (tipos) com validação \emph{em runtime} (Zod) e explique por que
+  as duas são necessárias em uma API.
+  \item \textbf{Inferência de strings}: crie o tipo
+  \texttt{type Rotas = "/"| "/blog"| "/blog/[slug]"} e um helper tipado que
+  monta URLs com parâmetros, garantindo que o slug seja passado.
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Usar \texttt{any} como ``fuga'' — ele desliga toda a rede de segurança;
+  \item \texttt{as Tipo} agressivo (cast que mente para o compilador e explode em runtime);
+  \item Ignorar \texttt{strict} em projetos novos (projetos legados sofrem disso);
+  \item Anotar tudo em excesso (ruído) ou nada (imprudência) — anote as fronteiras;
+  \item Confundir \texttt{interface} e \texttt{type} sem critério — escolha uma convenção.
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item TypeScript = JavaScript + tipos estáticos, apagados na compilação;
+  \item \texttt{strict: true} (com \texttt{strictNullChecks}) é não negociável;
+  \item \texttt{interface}/\texttt{type}, unions, literals, narrowing e generics formam o núcleo;
+  \item Discriminated unions modelam estados e resultados com segurança;
+  \item Utilitários (\texttt{Pick}, \texttt{Omit}, \texttt{Partial}...) derivam tipos novos;
+  \item Tipos na compilação, validação em runtime na borda (Zod no capítulo~\ref{cap:orms});
+  \item Projeto entregue: \texttt{valida.ts}, uma biblioteca de validação encadeável e tipada.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Documentação oficial do TypeScript: \url{https://www.typescriptlang.org/docs/}
+  \item TypeScript Handbook (PT-BR): \url{https://www.typescriptlang.org/pt/docs/handbook/intro.html}
+  \item Playground oficial: \url{https://www.typescriptlang.org/play}
+  \item tsconfig completo referenciado: \url{https://www.typescriptlang.org/tsconfig}
+\end{itemize}

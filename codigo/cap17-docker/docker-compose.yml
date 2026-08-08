@@ -1,0 +1,43 @@
+# Ambiente do SkillHub via Docker Compose (capítulo 17 do livro).
+# O contexto de build aponta para o projeto do capítulo 15.
+#
+# Uso:
+#   docker compose up -d db        # só o banco (para desenvolvimento local)
+#   docker compose up --build      # banco + app em produção (build local)
+#   docker compose down -v         # derruba TUDO, incluindo os dados do banco
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: senha
+      POSTGRES_DB: skillhub
+    ports:
+      - "5432:5432"
+    volumes:
+      - dados_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d skillhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: ../cap15-skillhub
+      target: prod
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://app:senha@db:5432/skillhub?schema=public
+      # Em desenvolvimento local use um valor fixo; em produção injete via
+      # segredo/CI — nunca versionado (capítulos 18 e 19).
+      AUTH_SECRET: dev-only-0123456789abcdef0123456789abcdef
+      AUTH_URL: http://localhost:3000
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  dados_postgres:

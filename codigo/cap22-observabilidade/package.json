@@ -1,0 +1,20 @@
+{
+  "name": "cap22-observabilidade",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Observabilidade: logs estruturados (pino) + métricas RED (prom-client) (capítulo 22)",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^4.0.0"
+  },
+  "dependencies": {
+    "pino": "^9.0.0",
+    "prom-client": "^15.0.0"
+  }
+}

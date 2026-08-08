@@ -1,0 +1,313 @@
+% ============================================================================
+% CAPÍTULO 11 — HTTP\index{HTTP}, REST\index{REST} e APIs
+% Texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{HTTP, REST e APIs}
+\label{cap:http}
+
+\begin{caixaconceito}
+\textbf{HTTP} é o protocolo da web: cada interação é um par
+requisição--resposta. \textbf{REST} é o estilo arquitetural dominante para
+APIs, e \textbf{JSON} é a língua franca dos dados. Entender esses três é
+entender o ``telefone'' entre frontend e backend.
+\end{caixaconceito}
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Ler e interpretar requisições e respostas HTTP (métodos, status, headers);
+  \item Projetar uma API\index{API} REST com recursos, verbos e códigos de status\index{códigos de status} corretos;
+  \item Construir uma API com Fastify\index{Fastify} e TypeScript;
+  \item Validar entradas, tratar erros e versionar a API;
+  \item Documentar com OpenAPI\index{OpenAPI} e testar com curl/Insomnia;
+  \item Entregar o projeto do capítulo: a API de um catálogo de filmes.
+\end{objetivos}
+
+\section{Anatomia de uma requisição HTTP}
+
+Cada requisição HTTP tem quatro partes — e o frontend que você construiu nos
+capítulos anteriores as envia a todo momento (via \texttt{fetch}):
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Método}: \texttt{GET} (ler), \texttt{POST} (criar),
+  \texttt{PUT} (substituir), \texttt{PATCH} (atualizar parcial),
+  \texttt{DELETE} (remover);
+  \item \textbf{URL e query}: \texttt{/api/filmes?genero=acao\&pagina=2} —
+  o caminho do recurso e os parâmetros de filtro;
+  \item \textbf{Headers}: metadados — \texttt{Content-Type},
+  \texttt{Authorization}, \texttt{Cache-Control}, \texttt{Accept};
+  \item \textbf{Corpo} (body): os dados enviados, normalmente JSON\index{JSON} em
+  \texttt{POST}/\texttt{PUT}/\texttt{PATCH}.
+\end{itemize}
+
+\begin{lstlisting}[style=livro, language=Bash, caption={Requisição e resposta via curl.}, label={list:http-curl}]
+# Requisição: POST /api/filmes com corpo JSON
+curl -X POST http://localhost:3000/filmes \
+  -H "Content-Type: application/json" \
+  -d '{"titulo":"Matrix","genero":"ficcao","ano":1999}'
+
+# Resposta: 201 Created com o recurso criado
+# {"id":1,"titulo":"Matrix","genero":"ficcao","ano":1999}
+\end{lstlisting}
+
+\section{Códigos de status: a linguagem universal}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item \textbf{2xx — sucesso}: \texttt{200 OK}, \texttt{201 Created}, \texttt{204 No Content};
+  \item \textbf{3xx — redirecionamento}: \texttt{301/308} permanente, \texttt{302/307} temporário, \texttt{304 Not Modified};
+  \item \textbf{4xx — erro do cliente}: \texttt{400} inválido, \texttt{401} não autenticado, \texttt{403} sem permissão, \texttt{404} não encontrado, \texttt{409} conflito, \texttt{422} validação;
+  \item \textbf{5xx — erro do servidor}: \texttt{500} interno, \texttt{502/503/504} gateway/indisponível/timeout.
+\end{itemize}
+
+\begin{caixaconceito}
+Escolher o status certo é metade do ``contrato'' da API. Um \texttt{404} para
+recurso inexistente, \texttt{401} para não autenticado e \texttt{403} para
+autenticado sem permissão — confundir esses três é erro clássico em
+entrevistas e code reviews. E \emph{nunca} responda \texttt{200} para um erro
+de validação: o cliente precisa distinguir sucesso de falha pelo status, não
+pelo conteúdo.
+\end{caixaconceito}
+
+\section{Projetando uma API REST}
+
+Recursos são substantivos no plural, identificados por URL e manipulados por
+verbos HTTP:
+
+\begin{table}[h]
+\centering
+\small
+\caption{Padrão REST para o recurso \emph{filmes}.}
+\label{tab:rest}
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Verbo} & \textbf{Rota} & \textbf{Ação} \\
+\midrule
+GET & \texttt{/filmes} & Listar (com filtros e paginação\index{paginação}) \\
+GET & \texttt{/filmes/:id} & Buscar um \\
+POST & \texttt{/filmes} & Criar \\
+PUT & \texttt{/filmes/:id} & Substituir \\
+PATCH & \texttt{/filmes/:id} & Atualizar parcialmente \\
+DELETE & \texttt{/filmes/:id} & Remover \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{caixadica}
+O mesmo padrão serve para qualquer recurso: \texttt{/usuarios},
+\texttt{/pedidos}, \texttt{/servicos}. Se você sente vontade de criar uma
+rota \texttt{/enviar-email}, pare: e-mail é \emph{efeito}, não recurso — o
+padrão correto é \texttt{POST /emails} (criar um e-mail) ou uma fila
+(capítulo~\ref{cap:arquitetura}).
+\end{caixadica}
+
+\section{Construindo a API com Fastify e TypeScript}
+
+O Node nativo (capítulo~\ref{cap:node}) te deu a base. Agora o \textbf{Fastify}
+adiciona roteamento, parsing, validação e logs — sem esconder o modelo:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={API REST completa com Fastify.}, label={list:api-fastify}]
+import Fastify from "fastify";
+
+const app = Fastify({ logger: true });
+
+interface Filme {
+  id: number;
+  titulo: string;
+  genero: string;
+  ano: number;
+}
+
+const filmes: Filme[] = [
+  { id: 1, titulo: "Matrix", genero: "ficcao", ano: 1999 },
+  { id: 2, titulo: "Cidade de Deus", genero: "drama", ano: 2002 },
+];
+
+// GET /filmes — listar com filtro opcional por gênero
+app.get("/filmes", async (req) => {
+  const { genero } = req.query as { genero?: string };
+  return genero ? filmes.filter((f) => f.genero === genero) : filmes;
+});
+
+// GET /filmes/:id — buscar um (com 404 correto)
+app.get("/filmes/:id", async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const filme = filmes.find((f) => f.id === Number(id));
+  return filme ?? reply.code(404).send({ erro: "Filme não encontrado" });
+});
+
+// POST /filmes — criar (201 Created)
+app.post<{ Body: Omit<Filme, "id"> }>("/filmes", async (req, reply) => {
+  const filme: Filme = { id: filmes.length + 1, ...req.body };
+  filmes.push(filme);
+  return reply.code(201).send(filme);
+});
+
+// PATCH /filmes/:id — atualizar parcial
+app.patch<{ Params: { id: string }; Body: Partial<Omit<Filme, "id">> }>(
+  "/filmes/:id",
+  async (req, reply) => {
+    const filme = filmes.find((f) => f.id === Number(req.params.id));
+    if (!filme) return reply.code(404).send({ erro: "Filme não encontrado" });
+    Object.assign(filme, req.body);
+    return filme;
+  },
+);
+
+// DELETE /filmes/:id — remover (204 No Content)
+app.delete("/filmes/:id", async (req, reply) => {
+  const idx = filmes.findIndex((f) => f.id === Number(req.params.id));
+  if (idx === -1) return reply.code(404).send({ erro: "Filme não encontrado" });
+  filmes.splice(idx, 1);
+  return reply.code(204).send();
+});
+
+await app.listen({ port: 3000 });
+\end{lstlisting}
+
+\begin{caixadica}
+\textbf{Fastify} é o framework Node recomendado em 2026: mais rápido que o
+Express, tipado de ponta a ponta e com validação embutida (JSON Schema).
+Express segue relevante (você o encontrará em empresas), mas novos projetos
+tendem ao Fastify. O \texttt{app.logger} já te dá logs estruturados — base da
+observabilidade (capítulo~\ref{cap:observabilidade}).
+\end{caixadica}
+
+\section{Validação, erros e versionamento}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Validação na borda}: toda entrada externa é hostil — valide
+  sempre (JSON Schema no Fastify, ou Zod);
+  \item \textbf{Erro padronizado}: \texttt{\{ erro: string \}} ou RFC 7807
+  (Problem Details) — um formato consistente para o frontend tratar;
+  \item \textbf{Versionamento}: \texttt{/v1/} na URL ou header — documente a
+  política (``\texttt{/v1} é estável; mudanças quebram viram \texttt{/v2}''');
+  \item \textbf{Paginação}: \texttt{?pagina=1\&limite=20}, com total no
+  header (\texttt{X-Total-Count});
+  \item \textbf{Documentação}: OpenAPI/Swagger gerada automaticamente
+  (\texttt{@fastify/swagger}).
+\end{itemize}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Validação com JSON Schema no Fastify.}, label={list:api-schema}]
+import Fastify from "fastify";
+
+const app = Fastify({ logger: true });
+
+const schemaFilme = {
+  body: {
+    type: "object",
+    required: ["titulo", "genero", "ano"],
+    properties: {
+      titulo: { type: "string", minLength: 1, maxLength: 120 },
+      genero: { type: "string", enum: ["acao", "drama", "comedia", "ficcao"] },
+      ano: { type: "integer", minimum: 1888, maximum: 2026 },
+    },
+    additionalProperties: false,
+  },
+};
+
+app.post<{ Body: { titulo: string; genero: string; ano: number } }>(
+  "/filmes",
+  { schema: schemaFilme },
+  async (req, reply) => {
+    // aqui req.body já está validado e tipado
+    return reply.code(201).send(req.body);
+  },
+);
+
+// Sem o schema, um body inválido devolveria 400 com os erros por campo.
+\end{lstlisting}
+
+\begin{caixaarmadilha}
+Nunca exponha erros internos (stack traces, SQL) ao cliente: logue no servidor
+e responda uma mensagem genérica. Vazamento de detalhes internos é como você
+entrega a planta da sua casa para atacantes (capítulo~\ref{cap:seguranca}).
+\end{caixaarmadilha}
+
+% ============================================================================
+\section{Projeto do capítulo: API de catálogo de filmes}
+\label{sec:projeto11}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} construir a API REST \emph{CineAPI} — catálogo de filmes com
+filtros, busca, paginação e documentação OpenAPI.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item CRUD completo (\texttt{GET/POST/PUT/PATCH/DELETE}) com status corretos (\texttt{201}, \texttt{204}, \texttt{404}, \texttt{409});
+  \item Filtros por gênero/ano e busca por título com \texttt{?q=};
+  \item Paginação com \texttt{limite} e \texttt{offset} e total no header;
+  \item Validação de entrada (ano 1888--2026, título obrigatório, gênero em lista);
+  \item Seed inicial com 20 filmes clássicos (dados reais);
+  \item Documentação em \texttt{/docs} (Swagger) e testes manuais documentados no README.
+\end{itemize}
+\end{caixaprojeto}
+
+\begin{caixadica}
+Algoritmo útil do capítulo: \textbf{busca por similaridade simples} —
+normalizar o título (minúsculas, sem acentos) e usar \texttt{includes}
+case-insensitive. É a base para autocomplete — e você evoluirá para busca
+full-text no PostgreSQL (capítulo~\ref{cap:postgresql}) e embeddings
+(capítulo~\ref{cap:ia}).
+\end{caixadica}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Liste os 5 métodos HTTP\index{métodos HTTP} e a ação correspondente de cada um no REST.
+  \item Qual a diferença entre \texttt{401}, \texttt{403} e \texttt{404}? Dê um cenário para cada.
+  \item Desenhe a tabela REST para o recurso \texttt{usuarios} (6 rotas).
+  \item Escreva uma rota Fastify \texttt{GET /produtos/:id} com tratamento de \texttt{404}.
+  \item O que são paginação e versionamento em APIs e por que são necessários?
+  \item O que o \texttt{Content-Type: application/json} informa ao receptor?
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Validação com Zod}: valide o body de \texttt{POST /filmes} com Zod e retorne \texttt{422} com os erros detalhados por campo.
+  \item \textbf{Problem Details}: implemente erros no padrão RFC 7807 com \texttt{type}, \texttt{title}, \texttt{status} e \texttt{detail}.
+  \item \textbf{Filtros combinados}: permita \texttt{?genero=acao\&anoMin=2000\&anoMax=2010} e teste todas as combinações.
+  \item \textbf{Busca}: implemente \texttt{?q=} que normaliza acentos e faz busca case-insensitive no título e no gênero.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Idempotência}: explique por que \texttt{PUT} é idempotente e \texttt{POST} não, e implemente um \texttt{PUT /filmes/:id} que seja seguro para repetição.
+  \item \textbf{Cache HTTP}: adicione \texttt{Cache-Control} e \texttt{ETag} na listagem e explique como o navegador e proxies usam \texttt{304}.
+  \item \textbf{Testes de contrato}: escreva testes que validam o \emph{contrato} da API (status, shape do JSON) para as 6 rotas — você automatizará no capítulo~\ref{cap:testes}.
+  \item \textbf{Throttling}: implemente rate limit por IP com janela deslizante (sem biblioteca) e documente a política.
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Usar \texttt{GET} para ações que mudam estado (deveria ser \texttt{POST});
+  \item Responder \texttt{200} para tudo (inclusive erros de validação);
+  \item Não validar entradas e sofrer \texttt{NaN} e SQL injection;
+  \item Expor stack traces em respostas de erro;
+  \item APIs sem paginação que travam quando crescem;
+  \item \texttt{/filmes/1} vs \texttt{/filmes?id=1} — recursos na URL, filtros na query.
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item HTTP é o par requisição--resposta; REST organiza recursos com verbos e status;
+  \item Status corretos (2xx/4xx/5xx) são o contrato da API;
+  \item Fastify + TypeScript constroem APIs rápidas e tipadas;
+  \item Valide na borda (JSON Schema/Zod), padronize erros, versione e documente (OpenAPI);
+  \item Paginação e busca são requisitos desde o primeiro dia;
+  \item Projeto entregue: CineAPI completa com Swagger.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item MDN — HTTP: \url{https://developer.mozilla.org/pt-BR/docs/Web/HTTP}
+  \item Documentação do Fastify: \url{https://fastify.dev/docs/latest/}
+  \item Documentação do Express: \url{https://expressjs.com}
+  \item OpenAPI Specification: \url{https://spec.openapis.org/oas/latest.html}
+  \item JSON Schema: \url{https://json-schema.org}
+\end{itemize}

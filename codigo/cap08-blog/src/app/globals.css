@@ -1,0 +1,207 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --bg: #f8fafc;
+  --texto: #0f172a;
+  --texto-suave: #64748b;
+  --borda: #e2e8f0;
+  --destaque: #0ea5e9;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f172a;
+    --texto: #e2e8f0;
+    --texto-suave: #94a3b8;
+    --borda: #334155;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--texto);
+  line-height: 1.6;
+}
+
+.site__cabecalho {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.site__logo {
+  font-weight: 800;
+  color: var(--texto);
+  text-decoration: none;
+}
+
+.site__cabecalho nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.site__cabecalho a {
+  color: var(--destaque);
+  text-decoration: none;
+}
+
+.site__rodape {
+  max-width: 720px;
+  margin: 3rem auto 0;
+  padding: 1.5rem 1rem;
+  border-top: 1px solid var(--borda);
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+}
+
+/* Lista de posts */
+.blog__lista {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.blog__titulo {
+  font-size: 2.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.lista-posts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.lista-posts a {
+  display: block;
+  padding: 1.25rem;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  color: var(--texto);
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+}
+
+.lista-posts a:hover {
+  border-color: var(--destaque);
+}
+
+.lista-posts h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.25rem;
+}
+
+.lista-posts .data {
+  color: var(--texto-suave);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.lista-posts p {
+  margin: 0.5rem 0 0;
+  color: var(--texto-suave);
+}
+
+/* Artigo */
+.artigo {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.artigo h1 {
+  font-size: 2.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.artigo .artigo__data {
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+}
+
+.artigo .artigo__corpo {
+  margin-top: 2rem;
+}
+
+.artigo pre {
+  background: #0b1220;
+  color: #e2e8f0;
+  padding: 1rem;
+  border-radius: 10px;
+  overflow-x: auto;
+}
+
+.artigo code {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.artigo blockquote {
+  border-left: 4px solid var(--destaque);
+  margin: 1.5rem 0;
+  padding: 0.5rem 1rem;
+  color: var(--texto-suave);
+}
+
+/* Dica (componente JSX customizado usado dentro do MDX) */
+.dica {
+  background: #e0f2fe;
+  border: 1px solid #7dd3fc;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .dica {
+    background: #0c4a6e;
+    border-color: #0ea5e9;
+    color: #e0f2fe;
+  }
+}
+
+.dica strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+/* Loading (skeleton) */
+.skeleton {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.skeleton__linha {
+  height: 1rem;
+  background: var(--borda);
+  border-radius: 6px;
+  margin-bottom: 0.75rem;
+  animation: pulsar 1.2s ease-in-out infinite;
+}
+
+.skeleton__linha--curta {
+  width: 40%;
+}
+
+@keyframes pulsar {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}

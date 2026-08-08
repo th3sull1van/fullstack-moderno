@@ -1,0 +1,63 @@
+// API de biblioteca — capítulo 13 (ORMs e Migrações).
+//
+// 4 tabelas relacionadas: Autor 1—N Livro 1—N Emprestimo N—1 Leitor.
+// As colunas *Normalizado guardam o texto sem acentos e em minúsculas para
+// busca case/accent-insensitive que funciona igual em SQLite e PostgreSQL
+// (Prisma só suporta mode: "insensitive" no PostgreSQL).
+//
+// Histórico de migrações:
+//   1. init        → Autor, Livro, Leitor
+//   2. emprestimos → Emprestimo + Livro.disponivel + índices
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Autor {
+  id               String  @id @default(uuid())
+  nome             String
+  nomeNormalizado  String
+  nacionalidade    String?
+  livros           Livro[]
+}
+
+model Livro {
+  id                String       @id @default(uuid())
+  titulo            String
+  tituloNormalizado String
+  anoPublicacao     Int
+  isbn              String       @unique
+  disponivel        Boolean      @default(true)
+  autor             Autor        @relation(fields: [autorId], references: [id], onDelete: Restrict)
+  autorId           String
+  emprestimos       Emprestimo[]
+
+  @@index([tituloNormalizado])
+  @@index([disponivel])
+}
+
+model Leitor {
+  id          String       @id @default(uuid())
+  nome        String
+  email       String       @unique
+  emprestimos Emprestimo[]
+}
+
+model Emprestimo {
+  id              String   @id @default(uuid())
+  livro           Livro    @relation(fields: [livroId], references: [id], onDelete: Restrict)
+  livroId         String
+  leitor          Leitor   @relation(fields: [leitorId], references: [id], onDelete: Restrict)
+  leitorId        String
+  dataEmprestimo  DateTime @default(now())
+  dataDevolucao   DateTime?
+
+  @@index([livroId])
+  @@index([leitorId])
+  @@index([dataDevolucao])
+}

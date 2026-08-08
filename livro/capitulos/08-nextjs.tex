@@ -1,0 +1,420 @@
+% ============================================================================
+% CAPÍTULO 8 — Next.js\index{Next.js}
+% Texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{Next.js: O Framework Full Stack do React}
+\label{cap:nextjs}
+
+\begin{caixaconceito}
+\textbf{Next.js} é o framework full stack mais usado sobre React
+\cite{nextjs-docs}: ele adiciona roteamento por arquivos, renderização no
+servidor (SSR/SSG\index{SSG}/ISR\index{ISR}), Server Components\index{Server Components}, Server Actions e otimizações
+automáticas — a versão 16 \cite{nextjs16} trouxe Turbopack estável e Cache
+Components. É o framework que o mercado pede nas vagas de full stack.
+\end{caixaconceito}
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Criar um projeto Next.js com o App Router\index{App Router} e entender sua estrutura;
+  \item Construir páginas, layouts, rotas dinâmicas e estados de carregamento/erro;
+  \item Distinguir Server Components de Client Components\index{Client Components} (\texttt{"use client"});
+  \item Escolher entre SSR\index{SSR}, SSG e ISR com critério técnico;
+  \item Navegar com \texttt{Link} e otimizar imagens e fontes;
+  \item Entregar o projeto do capítulo: um blog com MDX\index{MDX} e ISR.
+\end{objetivos}
+
+\section{O que o Next.js resolve}
+
+O React puro (capítulo~\ref{cap:react}) renderiza no navegador: o servidor
+envia uma página quase vazia e o JavaScript monta tudo — o que é ruim para
+SEO (buscadores veem pouco conteúdo) e para o primeiro acesso (o usuário
+espera o bundle baixar para ver algo).
+
+O Next.js resolve isso renderizando \textbf{HTML no servidor}: a página chega
+pronta, o conteúdo é indexável e o primeiro acesso é rápido. Depois, o
+JavaScript ``hidrata'' a página, devolvendo a interatividade do React. E mais:
+com Server Components e Server Actions, o mesmo projeto é \emph{frontend e
+backend ao mesmo tempo} — sem servidores separados para manter.
+
+\begin{caixaconceito}
+\textbf{Hidratação (hydration)}: o HTML renderizado no servidor é
+``reconectado'' ao React no navegador — os event handlers são anexados aos
+elementos já existentes, sem recriar a página. É a ponte entre ``HTML pronto''
+e ``aplicação interativa''.
+\end{caixaconceito}
+
+\section{Criando o projeto e entendendo o App Router}
+
+\begin{lstlisting}[style=livro, language=Bash,
+  caption={Criando um projeto Next.js.}, label={list:nextjs-create}]
+npx create-next-app@latest meu-blog
+cd meu-blog
+npm run dev        # desenvolvimento em http://localhost:3000
+npm run build      # build de produção
+npm start          # roda o build de produção
+\end{lstlisting}
+
+O comando faz perguntas (TypeScript, ESLint, Tailwind, App Router...).
+Responda \emph{sim} para TypeScript e App Router — a stack deste livro.
+
+\begin{lstlisting}[style=livro, language=Bash,
+  caption={Estrutura de pastas do App Router.}, label={list:nextjs-estrutura}]
+app/
+  layout.tsx        # layout raiz (html, body, fontes)
+  page.tsx          # rota "/"
+  blog/
+    page.tsx        # rota "/blog"
+    [slug]/
+      page.tsx      # rota dinâmica "/blog/meu-artigo"
+      not-found.tsx # 404 da rota dinâmica
+  api/
+    route.ts        # API Route (backend dentro do app)
+components/
+  Header.tsx
+lib/
+  posts.ts          # funções de dados
+\end{lstlisting}
+
+\begin{caixaconceito}
+No App Router, \emph{arquivos = rotas}: \texttt{page.tsx} define a página,
+\texttt{layout.tsx} o layout compartilhado, \texttt{loading.tsx} o estado de
+carregamento e \texttt{error.tsx} o tratamento de erros. Pasta, arquivo, rota
+— uma convenção única para todo o app, sem biblioteca de roteamento separada.
+\end{caixaconceito}
+
+\section{Layouts e rotas dinâmicas}
+
+Um \texttt{layout.tsx} envolve as páginas de sua pasta — e \emph{persiste}
+entre navegações (o React mantém o estado do layout enquanto você troca de
+página):
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Layout raiz com fontes e metadata.}, label={list:nextjs-layout}]
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: { default: "Meu Blog", template: "%s | Meu Blog" },
+  description: "Blog sobre desenvolvimento full stack",
+};
+
+export default function LayoutRaiz({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="pt-BR">
+      <body>
+        <header>{/* navbar */}</header>
+        <main>{children}</main>
+        <footer>{/* rodapé */}</footer>
+      </body>
+    </html>
+  );
+}
+\end{lstlisting}
+
+Rotas dinâmicas usam colchetes na pasta. A partir do Next.js 15/16,
+\texttt{params} é uma \textbf{Promise} — você precisa \texttt{await}:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Rota dinâmica com params assíncrono.}, label={list:nextjs-dinamica}]
+interface PaginaParams {
+  params: Promise<{ slug: string }>;
+}
+
+export default async function PaginaDoPost({ params }: PaginaParams) {
+  const { slug } = await params; // params é Promise no Next 15/16
+  const post = await obterPost(slug);
+
+  if (!post) {
+    return <h1>Post não encontrado</h1>;
+  }
+
+  return (
+    <article>
+      <h1>{post.titulo}</h1>
+      <time dateTime={post.data}>{post.dataFormatada}</time>
+      <p>{post.resumo}</p>
+    </article>
+  );
+}
+\end{lstlisting}
+
+\section{Server Components vs.\ Client Components}
+
+Por padrão, componentes no Next.js são \textbf{Server Components}: rodam no
+servidor, podem acessar o banco diretamente e \emph{não enviam JavaScript ao
+navegador}. Quando um componente precisa de interatividade (estado, eventos,
+hooks), adicione \texttt{"use client"}:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Server vs Client Components.}, label={list:nextjs-sc-cc}]
+// Server Component (padrão) — pode buscar dados e acessar o banco
+import { obterPosts } from "@/lib/posts";
+
+export default async function PaginaInicial() {
+  const posts = await obterPosts(); // direto no servidor!
+  return <ListaDePosts posts={posts} />;
+}
+
+// Client Component — interativo (arquivo separado, com "use client")
+"use client";
+import { useState } from "react";
+
+export function ContadorDeLikes({ postId }: { postId: string }) {
+  const [likes, setLikes] = useState(0);
+  return (
+    <button onClick={() => setLikes((l) => l + 1)}>
+      {likes} curtidas
+    </button>
+  );
+}
+\end{lstlisting}
+
+\begin{caixadica}
+Regra prática: \emph{server first}. Só desça para o cliente o que realmente
+precisa de interatividade. Menos JavaScript no navegador = site mais rápido,
+melhor SEO e custo menor. Essa mentalidade — ``o que pode rodar no servidor,
+roda no servidor'' — é o que diferencia seniors em 2026.
+\end{caixadica}
+
+\begin{caixaarmadilha}
+Um Server Component \emph{não pode} usar \texttt{useState} nem
+\texttt{useEffect} — se você tentar, o compilador avisa. E um Client Component
+\emph{não pode importar} um Server Component (mas pode recebê-lo como
+\texttt{children}). A regra do ``arquivo com \texttt{"use client"}'' fica no
+topo do arquivo, e tudo o que ele importa vira client também.
+\end{caixaarmadilha}
+
+\section{Renderização: SSR, SSG e ISR}
+
+Três estratégias cobrem todos os cenários de atualização de conteúdo:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{SSR} (Server-Side Rendering): HTML gerado a \emph{cada
+  requisição} — para dados que mudam o tempo todo (painel com métricas ao vivo);
+  \item \textbf{SSG} (Static Site Generation): HTML gerado \emph{no build} —
+  para páginas quase imutáveis (página ``Sobre'', documentação);
+  \item \textbf{ISR} (Incremental Static Regeneration): SSG com
+  \emph{revalidação} — a página é estática, mas se regenera a cada N segundos
+  ou sob demanda. É o padrão ideal para blogs e catálogos.
+\end{itemize}
+
+A Figura~\ref{fig:isr-fluxo} mostra o ciclo do ISR: enquanto o cache está
+válido, a página estática é servida instantaneamente; quando expira, ela é
+regenerada em segundo plano e o cache é substituído — o usuário nunca espera
+pela geração.
+
+\begin{figure}[htbp]
+  \centering
+  \diagramatikz{%
+  \begin{tikzpicture}[
+      box/.style={draw=primaria, fill=azulclaro, rounded corners=2pt,
+        align=center, inner sep=4pt, font=\footnotesize},
+      dec/.style={diamond, draw=primaria, fill=azulclaro, aspect=1.8,
+        align=center, inner sep=1pt, font=\footnotesize},
+      seta/.style={-{Stealth[length=2.2mm]}, thick, color=secundaria},
+      font=\footnotesize
+    ]
+    \node[box] (build) at (0,0) {Build};
+    \node[box] (static) at (3.0,0) {Página estática\\revalidate: 3600s};
+    \node[dec] (d) at (6.4,0) {Cache\\válido?};
+    \node[box] (cache) at (10.0,0) {Serve do\\cache};
+    \node[box] (regen) at (6.4,-2.8) {Regenera em\\background};
+    \node[box] (atual) at (10.0,-2.8) {Atualiza o\\cache};
+    \draw[seta] (build) -- (static);
+    \draw[seta] (static) -- (d);
+    \draw[seta] (d) -- node[above] {sim} (cache);
+    \draw[seta] (d) -- node[right] {não} (regen);
+    \draw[seta] (regen) -- node[above] {nova página} (atual);
+    \draw[seta] (atual.west) .. controls (9.0,-3.8) and (4.2,-3.8) ..
+      (static.south) node[midway, below] {substitui};
+  \end{tikzpicture}}
+  \caption{Ciclo do ISR: estática no build, regenerada em background quando o
+  cache expira.}
+  \label{fig:isr-fluxo}
+\end{figure}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={ISR: página estática que se atualiza.}, label={list:nextjs-isr}]
+// Regenera a página a cada 1 hora (em segundo plano)
+export const revalidate = 3600;
+
+export default async function PaginaDoPost({ params }: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const post = await obterPost(slug);
+  return <article>{/* conteúdo do post */}</article>;
+}
+\end{lstlisting}
+
+\begin{caixaconceito}
+No Next.js 16, o cache virou \emph{padrão por rota} (Cache Components) com
+controle fino: \texttt{revalidate} para tempo, \texttt{revalidatePath} e
+\texttt{revalidateTag} para invalidação sob demanda (você usará isso no
+capítulo~\ref{cap:fullstack}). A pergunta que você deve sempre fazer: \emph{o
+que muda? com que frequência? quem precisa ver na hora?}
+\end{caixaconceito}
+
+\section{Navegação, imagens e fontes otimizadas}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Link, Image e fontes do Next.js.}, label={list:nextjs-otimizacao}]
+import Link from "next/link";
+import Image from "next/image";
+
+export function Nav() {
+  return (
+    <nav>
+      <Link href="/blog">Blog</Link>
+      <Link href="/sobre">Sobre</Link>
+    </nav>
+  );
+}
+
+// Image otimiza formato (AVIF/WebP), tamanho e lazy-load automaticamente
+<Image
+  src="/capa-do-post.jpg"
+  alt="Capa do artigo sobre Next.js"
+  width={1200}
+  height={630}
+  priority
+/>
+\end{lstlisting}
+
+\begin{caixadica}
+\texttt{next/link} faz navegação \emph{client-side} (sem recarregar a página,
+com preload da rota de destino) — por isso é preferível ao \texttt{<a>}
+comum para rotas internas. \texttt{next/image} entrega as imagens no tamanho
+certo para cada tela, no formato moderno e com \texttt{lazy loading} — os três
+pilares da performance que você vai aprofundar no capítulo~\ref{cap:performance}.
+\end{caixadica}
+
+\section{SEO com Metadata}
+
+Cada página pode declarar seus próprios metadados — dinamicamente ou não:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Metadata dinâmica por página.}, label={list:nextjs-seo}]
+import type { Metadata } from "next";export async function generateMetadata({ params }: { params: Promise<{ slug: string }>; }): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await obterPost(slug);
+
+  return {
+    title: post.titulo,
+    description: post.resumo,
+    openGraph: {
+      title: post.titulo,
+      description: post.resumo,
+      type: "article",
+    },
+  };
+}
+\end{lstlisting}
+
+% ============================================================================
+\section{Projeto do capítulo: blog com MDX e ISR}
+\label{sec:projeto8}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} construir um blog completo onde cada artigo é um arquivo
+MDX (Markdown + JSX), com listagem, página individual, ISR e tema visual.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Lista de posts em \texttt{/blog} com título, resumo e data;
+  \item Rota dinâmica \texttt{/blog/[slug]} com \texttt{generateStaticParams} e \texttt{revalidate};
+  \item Conteúdo em MDX com pelo menos um componente JSX customizado dentro do artigo;
+  \item \texttt{loading.tsx} e \texttt{not-found.tsx} para a rota dinâmica;
+  \item Metadata dinâmica (\texttt{generateMetadata}) para SEO;
+  \item Deploy na Vercel (grátis) com o projeto público.
+\end{itemize}
+\end{caixaprojeto}
+
+Para gerar as páginas estáticas do blog, use \texttt{generateStaticParams} —
+o Next.js pré-renderiza cada \texttt{slug} no build:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={generateStaticParams + not-found.}, label={list:nextjs-params}]
+export async function generateStaticParams() {
+  const posts = await obterTodosPosts();
+  return posts.map((post) => ({ slug: post.slug }));
+}
+
+export default async function PaginaDoPost({ params }: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const post = await obterPost(slug);
+
+  if (!post) {
+    return <h1>404 — Post não encontrado</h1>;
+  }
+  return <article>{/* conteúdo */}</article>;
+}
+\end{lstlisting}
+
+\begin{caixadica}
+O blog será a vitrine de tudo o que você aprendeu até aqui — e a base do seu
+portfólio. No capítulo~\ref{cap:fullstack}, ele ganha banco de dados,
+comentários e autenticação.
+\end{caixadica}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Explique a diferença entre Server Components e Client Components e quando usar cada um.
+  \item O que diferencia SSR, SSG e ISR? Dê um caso de uso real para cada.
+  \item Como o Next.js transforma pastas em rotas? Cite três convenções de arquivo especiais.
+  \item Escreva o comando para criar um projeto Next.js e a estrutura de pastas de uma rota dinâmica de produto.
+  \item Por que \texttt{Link} é preferível a \texttt{<a>} para navegação interna?
+  \item O que \texttt{generateStaticParams} faz e quando é necessário?
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Rotas dinâmicas}: crie a rota \texttt{/produtos/[id]} com \texttt{generateStaticParams}, \texttt{generateMetadata} e página de \emph{não encontrado}.
+  \item \textbf{Layout aninhado}: crie um \texttt{layout.tsx} para a área \texttt{/dashboard} com sidebar, e uma rota de grupo \texttt{(marketing)} sem o layout do dashboard.
+  \item \textbf{Server Action de contato}: implemente uma Server Action que recebe os dados do formulário de contato, valida e registra em log no servidor.
+  \item \textbf{Notações de código}: crie um componente MDX customizado (ex.: \texttt{<Dica>}) e use-o em um artigo.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Cache do Next.js 16}: explique as camadas de cache (Cache Components, rota, dados) e como \texttt{revalidatePath} e \texttt{revalidateTag} invalidam conteúdo sob demanda.
+  \item \textbf{Streaming}: use \texttt{Suspense} para streaming de seções da página e explique o impacto em LCP (maior pintura de conteúdo).
+  \item \textbf{Middleware e proxy:} implemente um \texttt{proxy.ts} que bloqueia requisições de países/IPs específicos ou aplica headers de segurança (base para o capítulo~\ref{cap:seguranca}).
+  \item \textbf{Benchmark:} compare em Lighthouse a mesma página com \texttt{"use client"} pesado vs.\ Server Components e documente a diferença de JavaScript transferido.
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Marcar tudo com \texttt{"use client"} (perde todo o benefício do servidor);
+  \item Buscar dados dentro de Client Components (deveria ser no servidor);
+  \item Esquecer \texttt{await params} (Next.js 15/16 tornou params assíncrono);
+  \item Usar \texttt{<img>} em vez de \texttt{next/image} (perde otimização);
+  \item Ignorar \texttt{loading.tsx} — a primeira impressão de navegação fica ruim;
+  \item Páginas 100\% estáticas com dados que mudam (dados defasados — use ISR).
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Next.js = React + roteamento + renderização no servidor + backend integrado;
+  \item App Router: arquivos viram rotas; \texttt{layout/loading/error/not-found} são convenções;
+  \item Server Components por padrão; \texttt{"use client"} só para interatividade;
+  \item SSR, SSG e ISR cobrem todos os cenários de atualização de conteúdo;
+  \item \texttt{next/link}, \texttt{next/image} e Metadata são otimizações embutidas;
+  \item Projeto entregue: blog MDX com ISR publicado na Vercel.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Documentação oficial do Next.js: \url{https://nextjs.org/docs}
+  \item Anúncio do Next.js 16: \url{https://nextjs.org/blog/next-16}
+  \item Curso oficial (App Router): \url{https://nextjs.org/learn}
+  \item Documentação do MDX: \url{https://mdxjs.com}
+  \item Guia de deploy na Vercel: \url{https://nextjs.org/learn-pages-router/basics/deploying-nextjs-app}
+\end{itemize}

@@ -1,0 +1,102 @@
+% ============================================================================
+% APÊNDICE A — Instalação do ambiente
+% ============================================================================
+\chapter{Instalação e Configuração do Ambiente}
+\label{apendice:instalacao}
+
+Este apêndice configura o ambiente completo que você usará em todos os
+capítulos. Siga na ordem — cada passo verifica o anterior.
+
+\section{Editor de código: VS Code}
+
+\begin{enumerate}[leftmargin=*, itemsep=0.3em]
+  \item Baixe e instale o VS Code: \url{https://code.visualstudio.com};
+  \item Extensões recomendadas: \emph{ESLint}, \emph{Prettier},
+  \emph{TypeScript (nativo)}, \emph{Tailwind CSS IntelliSense},
+  \emph{Prisma}, \emph{Docker}, \emph{GitLens} e o tema de sua preferência;
+  \item Ative \emph{Format on Save} (Ctrl+Shift+P $\rightarrow$ Settings
+  $\rightarrow$ \texttt{editor.formatOnSave}).
+\end{enumerate}
+
+\section{Node.js e npm}
+
+\begin{enumerate}[leftmargin=*, itemsep=0.3em]
+  \item Baixe o instalador LTS em \url{https://nodejs.org} (recomendamos a
+  versão 24 LTS, usada neste livro);
+  \item Verifique no terminal:
+\end{enumerate}
+
+\begin{lstlisting}[style=livro, language=Bash, caption={Verificação do Node.}, label={list:inst-node}]
+node --version   # v24.x ou superior
+npm --version    # 11.x
+\end{lstlisting}
+
+\begin{caixadica}
+No Windows, o terminal recomendado é o \textbf{Git Bash}, instalado junto com
+o Git (abaixo). Ele permite os comandos \texttt{ls}, \texttt{curl} e scripts
+como os deste livro sem configuração extra.
+\end{caixadica}
+
+\section{Git e GitHub}
+
+\begin{enumerate}[leftmargin=*, itemsep=0.3em]
+  \item Instale o Git: \url{https://git-scm.com};
+  \item Crie uma conta em \url{https://github.com};
+  \item Configure sua identidade (uma vez por máquina) e um token de acesso
+  pessoal (Personal Access Token) com escopo \texttt{repo}.
+\end{enumerate}
+
+\begin{lstlisting}[style=livro, language=Bash, caption={Configuração inicial do Git.}, label={list:inst-git}]
+git config --global user.name "Seu Nome"
+git config --global user.email "voce@exemplo.com"
+git --version
+\end{lstlisting}
+
+\section{Docker Desktop}
+
+\begin{enumerate}[leftmargin=*, itemsep=0.3em]
+  \item Instale o Docker Desktop: \url{https://www.docker.com/products/docker-desktop/};
+  \item Verifique:
+\end{enumerate}
+
+\begin{lstlisting}[style=livro, language=Bash, caption={Verificação do Docker.}, label={list:inst-docker}]
+docker --version
+docker compose version
+\end{lstlisting}
+
+\section{PostgreSQL (opções)}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item \textbf{Opção A (recomendada)}: rode via Docker sempre que precisar
+  (capítulo~\ref{cap:docker}); 
+  \item \textbf{Opção B}: instale o PostgreSQL 18 local
+  (\url{https://www.postgresql.org/download/}) com \texttt{psql} e \texttt{pgAdmin}.
+\end{itemize}
+
+\begin{lstlisting}[style=livro, language=Bash, caption={Subindo um PostgreSQL de teste.}, label={list:inst-pg}]
+docker run --name pg-livro -e POSTGRES_USER=app -e POSTGRES_PASSWORD=senha \
+  -e POSTGRES_DB=app -p 5432:5432 -d postgres:18
+\end{lstlisting}
+
+\section{Ferramentas de teste de API}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item \textbf{Insomnia} (\url{https://insomnia.rest}) ou \textbf{Bruno}
+  (\url{https://www.usebruno.com}, open-source e recomendado);
+  \item O \texttt{curl} do Git Bash também basta para testes rápidos.
+\end{itemize}
+
+\section{Verificação final: o teste do semáforo}
+
+Rode tudo de uma vez:
+
+\begin{lstlisting}[style=livro, language=Bash, caption={Checklist do ambiente.}, label={list:inst-check}]
+node --version && npm --version && git --version && docker --version
+echo "Ambiente pronto!"
+\end{lstlisting}
+
+\begin{caixadica}
+Cada capítulo informa quais ferramentas usa. Você não precisa instalar nada
+além deste apêndice agora — o restante (Redis, Playwright, etc.) vem com o
+próprio projeto quando necessário.
+\end{caixadica}

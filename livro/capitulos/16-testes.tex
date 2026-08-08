@@ -1,0 +1,373 @@
+% ============================================================================
+% CAPÍTULO 16 — Testes automatizados
+% Status: texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{Testes Automatizados}
+\label{cap:testes}
+
+\begin{caixaconceito}
+Testar não é opcional: é a rede de segurança que permite refatorar sem medo,
+documenta o comportamento e separa código ``que funciona'' de código
+\emph{confiável}. A stack de mercado: \textbf{Vitest} para unit/componente e
+\textbf{Playwright} para E2E \cite{vitest-docs,playwright-docs}.
+\end{caixaconceito}
+
+Existe um momento em todo projeto em que o código ``funciona'' mas ninguém
+ousa mexer nele. A funcionalidade nova quebra a antiga; o bug corrigido
+ressuscita três semanas depois; o deploy vira um evento de risco. Esse momento
+não é sobre escrever código — é sobre \emph{confiança}. Testes automatizados
+são a ferramenta que transforma ``espero que funcione'' em ``sei que
+funciona''.
+
+Este capítulo não trata de ``técnica de teste'' como abstração: trata da
+suíte que você vai escrever de verdade, no projeto real do SkillHub, com as
+ferramentas que o mercado TypeScript adotou em massa — Vitest\index{Vitest} para testes
+rápidos e Playwright\index{Playwright} para fluxos completos no navegador.
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Aplicar a pirâmide de testes\index{pirâmide de testes} (unitário $\rightarrow$ integração $\rightarrow$ E2E);
+  \item Escrever testes unitários\index{testes unitários} com Vitest (funções e componentes React);
+  \item Testar integrações com banco real ou em memória;
+  \item Escrever testes E2E com Playwright (fluxos reais do usuário);
+  \item Medir cobertura\index{cobertura} e escrever testes que valem a pena;
+  \item Entregar o projeto do capítulo: a suíte completa do SkillHub.
+\end{objetivos}
+
+\section{A pirâmide de testes}
+
+A pirâmide organiza os testes por \emph{custo} e \emph{quantidade}:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Unitários} (base, muitos): funções e componentes isolados — rápidos;
+  \item \textbf{Integração} (meio): módulo + banco + HTTP — verificam o encaixe;
+  \item \textbf{E2E} (topo, poucos): fluxo completo no navegador — caros, mas validam o produto inteiro.
+\end{itemize}
+
+\begin{caixaconceito}
+A pirâmide existe porque o custo (tempo, manutenção, flakiness) cresce de
+baixo para cima. Priorize muitos testes unitários baratos e poucos E2E
+críticos. Testes E2E que testam tudo viram pesadelo de manutenção.
+\end{caixaconceito}
+
+\begin{caixadica}
+Uma forma útil de pensar: um teste unitário responde ``esta função faz o que
+promete?'', um teste de integração responde ``essas peças se encaixam?'', e um
+E2E responde ``o usuário consegue concluir a tarefa?''. As três perguntas são
+diferentes — e todas precisam de resposta.
+\end{caixadica}
+
+\subsection{TDD: teste primeiro, ou depois?}
+
+Test-driven development (escrever o teste antes da implementação) é uma
+ferramenta poderosa de \emph{design}: ele força você a pensar na interface
+antes da implementação. Mas não é dogma. No dia a dia, o padrão mais comum é
+híbrido: testes críticos (regras de negócio, validação, bugs corrigidos) são
+escritos com TDD\index{TDD}; testes de cobertura de utilitários simples vêm depois. O
+importante não é a ordem — é \emph{existirem} e rodarem a cada mudança.
+
+\section{Vitest: testes unitários rápidos}
+
+O Vitest é o sucessor moderno do Jest para o ecossistema Vite/TypeScript:
+mesma API familiar (\texttt{describe}/\texttt{it}/\texttt{expect}), mas com
+transformação nativa de TypeScript e modo watch instantâneo:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Teste unitário com Vitest.}, label={list:teste-vitest}]
+import { describe, it, expect } from "vitest";
+import { formatarMoeda, validarEmail } from "./utils";
+
+describe("formatarMoeda", () => {
+  it("formata valores em reais", () => {
+    expect(formatarMoeda(1234.5)).toBe("R$ 1.234,50");
+  });
+});
+
+describe("validarEmail", () => {
+  it("aceita e-mails válidos", () => {
+    expect(validarEmail("ana@exemplo.com")).toBe(true);
+  });
+
+  it("rejeita e-mails sem arroba", () => {
+    expect(validarEmail("anaexemplo.com")).toBe(false);
+  });
+});
+\end{lstlisting}
+
+\begin{lstlisting}[style=livro, language=Bash,
+  caption={Executando a suíte.}, label={list:teste-run}]
+npx vitest run        # uma vez
+npx vitest            # modo watch
+npx vitest run --coverage   # relatório de cobertura
+\end{lstlisting}
+
+\begin{caixadica}
+Escolha \textbf{assertions} pelo que elas verificam: \texttt{toBe} compara
+identidade (primitivos), \texttt{toEqual} compara estrutura (objetos e
+arrays), \texttt{toContain} verifica presença em coleções, e
+\texttt{toThrow} valida exceções. Usar o matcher errado é a causa nº 1 de
+testes que passam sem testar nada.
+\end{caixadica}
+
+\subsection{Mocks: isolando o que não é seu}
+
+Quando a função testada depende de algo externo (banco, HTTP, relógio), você
+tem duas escolhas: subir a dependência de verdade (teste de integração) ou
+substituí-la por um \emph{mock} (teste unitário). O Vitest traz
+\texttt{vi.fn()}, \texttt{vi.mock()} e \texttt{vi.useFakeTimers()}:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Mock de fetch e de relógio.}, label={list:teste-mock}]
+import { vi, it, expect } from "vitest";
+import { buscarUsuario } from "./api";
+
+it("trata falha de rede com fallback", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+    new Response("{}", { status: 500 }),
+  );
+
+  await expect(buscarUsuario("ana")).resolves.toBeNull();
+});
+
+it("usa o tempo atual no log", () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-08-08T12:00:00Z"));
+  // ... código que depende de Date.now()
+  vi.useRealTimers();
+});
+\end{lstlisting}
+
+\begin{caixaarmadilha}
+Mocks\index{mocks} mentem. Um mock de \texttt{prisma.servico.create} não valida schema,
+não aplica constraints e não aciona triggers — ele devolve exatamente o que
+você programou. Use mocks para \emph{isolar}, não para \emph{simular o banco}:
+regras de banco merecem teste de integração real.
+\end{caixaarmadilha}
+
+\section{Testando componentes React}
+
+Use a \textbf{Testing Library}: teste o que o usuário \emph{vê e faz}, não os
+detalhes internos:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Teste de componente com Testing Library.}, label={list:teste-react}]
+import { render, screen, fireEvent } from "@testing-library/react";
+import { Contador } from "./Contador";
+
+it("incrementa ao clicar", () => {
+  render(<Contador />);
+  const botao = screen.getByRole("button", { name: /cliques/i });
+  fireEvent.click(botao);
+  fireEvent.click(botao);
+  expect(screen.getByText("Cliques: 2")).toBeInTheDocument();
+});
+\end{lstlisting}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{getByRole} — encontra pelo papel acessível (o mesmo que leitores de tela usam);
+  \item \textbf{getByLabel} — encontra campos pelo \texttt{<label>} (a mesma forma que o usuário identifica);
+  \item \textbf{getByText} — conteúdo visível;
+  \item \textbf{fireEvent} vs \textbf{userEvent} — \texttt{userEvent} simula interações reais (digitação, foco) e é mais fiel; prefira-o.
+\end{itemize}
+
+\begin{caixaconceito}
+Se um teste depende de \texttt{className} ou do HTML interno de um componente,
+ele quebra quando o design muda — e você perde a confiança na suíte. Testar
+por papel acessível é testar o contrato com o usuário, que muda muito menos
+que o markup.
+\end{caixaconceito}
+
+\section{Testes de integração com banco}
+
+O teste de integração sobe a dependência real — banco, HTTP — e verifica o
+encaixe. Para o Prisma, o padrão é um banco PostgreSQL de teste isolado:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Integração: repositório contra banco real (Docker).},
+  label={list:teste-integracao}]
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { prisma } from "./db";
+
+describe("repositorio de servicos", () => {
+  beforeAll(async () => {
+    await prisma.$executeRaw`TRUNCATE servicos RESTART IDENTITY CASCADE`;
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it("cria e busca um serviço", async () => {
+    const criado = await prisma.servico.create({
+      data: { titulo: "Aula de React", precoCentavos: 5000 },
+    });
+    const encontrado = await prisma.servico.findUnique({ where: { id: criado.id } });
+    expect(encontrado?.titulo).toBe("Aula de React");
+  });
+});
+\end{lstlisting}
+
+\begin{caixadica}
+Para integração com banco, rode o PostgreSQL em Docker (capítulo~\ref{cap:docker})
+e use um banco de teste separado (\texttt{DATABASE\_URL} apontando para
+\texttt{...\_test}). Isolamento total entre testes = resultados confiáveis.
+\end{caixadica}
+
+\begin{caixadica}
+Em vez de \texttt{TRUNCATE} manual, considere rodar \texttt{prisma migrate
+reset} ou \texttt{prisma db push} no banco de teste no \texttt{beforeAll} da
+suíte. Isso garante que o schema de teste esteja sempre sincronizado com as
+migrações — e pega erros de migração antes do deploy.
+\end{caixadica}
+
+\section{Playwright: testes E2E no navegador real}
+
+O Playwright abre um navegador real (Chromium, Firefox, WebKit), executa o
+fluxo como um usuário e verifica o resultado na tela:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={E2E: o fluxo completo de um pedido.}, label={list:teste-e2e}]
+import { test, expect } from "@playwright/test";
+
+test("profissional anuncia um serviço", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await page.getByLabel("E-mail").fill("ana@exemplo.com");
+  await page.getByLabel("Senha").fill("senha-forte-123");
+  await page.getByRole("button", { name: "Entrar" }).click();
+
+  await page.goto("/painel");
+  await page.getByRole("button", { name: "Novo serviço" }).click();
+  await page.getByLabel("Título").fill("Aula de Next.js");
+  await page.getByRole("button", { name: "Publicar" }).click();
+
+  await expect(page.getByText("Aula de Next.js")).toBeVisible();
+});
+\end{lstlisting}
+
+\begin{caixaconceito}
+O Playwright espera por \emph{condições}, não por \emph{tempo}: locators
+(\texttt{getByRole}, \texttt{getByLabel}) + \texttt{expect} com auto-wait
+eliminam os \texttt{sleep} que tornam testes frágeis. Teste como usuário: por
+papel, rótulo e texto visível.
+\end{caixaconceito}
+
+\begin{caixadica}
+Crie dados de teste com \textbf{API} (não pela UI): no \texttt{beforeAll},
+cadastre usuários e serviços via Route Handlers ou Prisma direto. A UI fica
+livre para testar o que ela deve testar — o fluxo — em vez de perder tempo
+repetindo o cadastro em todo teste.
+\end{caixadica}
+
+\section{Cobertura: métrica, não meta}
+
+Cobertura mede \emph{quantas linhas rodaram}, não \emph{se o comportamento está
+correto}. Use-a para encontrar código morto e lacunas, não como número a
+inflar. Uma linha de negócio crítica testada vale mais que 100\% de cobertura
+de funções triviais.
+
+\begin{caixaconceito}
+\textbf{O teste que vale a pena} é aquele que falha quando o comportamento
+muda. Se você pode remover um teste e nada quebra, ele não estava protegendo
+nada — ele estava só decorando o relatório de cobertura.
+\end{caixaconceito}
+
+% ============================================================================
+\section{Projeto do capítulo: a suíte do SkillHub}
+\label{sec:projeto16}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} criar a suíte de testes completa do marketplace SkillHub
+(capítulo~\ref{cap:fullstack}).
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item \textbf{Unitários}: utilitários (formatação, validação, base62) e componentes isolados;
+  \item \textbf{Integração}: repositório Prisma contra banco de teste + rotas HTTP;
+  \item \textbf{E2E}: 3 fluxos — cadastro/login, anunciar serviço, contratar serviço;
+  \item Testes de regressão do RBAC (não-dono recebe \texttt{403});
+  \item Scripts no \texttt{package.json}: \texttt{test}, \texttt{test:e2e}, \texttt{coverage};
+  \item CI executando a suíte (capítulo~\ref{cap:cicd});
+  \item Cobertura $\geq$ 70\% nas funções de negócio, documentada.
+\end{itemize}
+\end{caixaprojeto}
+
+\subsection{Passo a passo}
+
+\begin{passos}
+  \item \textbf{Instalação}: adicione Vitest + Testing Library ao projeto e crie
+  o script \texttt{test} no \texttt{package.json};
+  \item \textbf{Unitários}: teste \texttt{formatarMoeda}, \texttt{validarEmail}
+  e o codificador/decodificador (use property-based com \texttt{fast-check}
+  como desafio extra);
+  \item \textbf{Componentes}: teste o \texttt{FormularioDeServico} — erro de
+  validação visível, estado \texttt{pendente} e sucesso;
+  \item \textbf{Integração}: suba o PostgreSQL de teste em Docker, rode as
+  migrações e teste o repositório Prisma + as Server Actions (sucesso e
+  falhas de RBAC);
+  \item \textbf{E2E}: configure o Playwright, crie os 3 fluxos e rode contra o
+  servidor de desenvolvimento com banco de teste;
+  \item \textbf{CI}: faça o GitHub Actions rodar unit + integração + E2E em
+  cada pull request (capítulo~\ref{cap:cicd});
+  \item \textbf{Documentação}: registre como rodar cada camada e o relatório
+  de cobertura no \texttt{README} do projeto.
+\end{passos}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Desenhe a pirâmide de testes e explique por que ela existe.
+  \item Escreva testes unitários para \texttt{validarEmail} (4 casos) e \texttt{formatarMoeda}.
+  \item Qual a diferença entre \texttt{toBe} e \texttt{toEqual} no Vitest?
+  \item Escreva um teste de componente: um botão que mostra ``Carregando...'' enquanto pendente.
+  \item Por que locators por \texttt{role} são melhores que por \texttt{class}?
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Teste de Server Action}: teste \texttt{criarServico} com validação Zod (sucesso, título curto, preço negativo).
+  \item \textbf{Mock de fetch}: teste um componente que busca dados com \texttt{vi.mock} e estados de erro.
+  \item \textbf{Snapshot visual}: use o screenshot do Playwright para comparar o design system antes/depois de uma mudança de tema.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Testes determinísticos}: elimine flakiness de um teste E2E que falha 1 em 10 vezes (dica: isolamento de dados, locators, retries) e documente a causa raiz.
+  \item \textbf{Teste de carga}: use K6 para 100 usuários simultâneos na rota de busca e defina um orçamento de performance (p95 $<$ 300ms).
+  \item \textbf{Property-based testing}: use \texttt{fast-check} para gerar 1000 URLs aleatórias e validar o par codificar/decodificar do encurtador (capítulo~\ref{cap:node}).
+  \item \textbf{Mutação}: rode o \texttt{stryker} e elimine mutantes sobreviventes nas funções de negócio críticas.
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Testar implementação em vez de comportamento (testes que quebram a cada refactor);
+  \item \texttt{sleep} em E2E (testes frágeis — use auto-wait);
+  \item Cobertura como meta em vez de ferramenta;
+  \item Esquecer de testar os caminhos de erro (401, 403, 404, 500);
+  \item Banco de teste compartilhado com dados vazando entre testes;
+  \item Testes que dependem de ordem de execução ou de estado global (torne cada teste independente);
+  \item E2E testando detalhes internos da UI (ex.: \texttt{class}) em vez do comportamento visível.
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Pirâmide: muitos unitários, alguns de integração, poucos E2E;
+  \item Vitest para unit/componente; Testing Library para comportamento;
+  \item Integração com banco real isolado (Docker);
+  \item Playwright para fluxos reais com locators acessíveis;
+  \item Cobertura é ferramenta, não meta;
+  \item Projeto entregue: suíte completa do SkillHub.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Documentação do Vitest: \url{https://vitest.dev}
+  \item Testing Library: \url{https://testing-library.com}
+  \item Documentação do Playwright: \url{https://playwright.dev}
+  \item Jest (alternativa madura): \url{https://jestjs.io}
+\end{itemize}

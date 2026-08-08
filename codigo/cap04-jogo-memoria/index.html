@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Jogo da memória com emojis: encontre todos os pares no menor número de jogadas." />
+  <title>Jogo da Memória</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="jogo">
+    <h1>Jogo da Memória</h1>
+    <div class="placar" aria-live="polite">
+      <span>Jogadas: <strong id="jogadas">0</strong></span>
+      <span>Tempo: <strong id="tempo">00:00</strong></span>
+      <span id="recorde">Recorde: -</span>
+    </div>
+    <div id="grade" class="grade" aria-label="Tabuleiro do jogo da memória"></div>
+    <button id="reiniciar" class="reiniciar" type="button">Reiniciar</button>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>

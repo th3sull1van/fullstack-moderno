@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description"
+        content="Receita de pão de queijo mineiro: 6 ingredientes e o passo a passo completo em 40 minutos." />
+  <title>Pão de Queijo Mineiro — Cozinha Prática</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <nav aria-label="Navegação principal">
+      <a href="/">Início</a>
+      <a href="/receitas">Receitas</a>
+      <a href="/sobre">Sobre</a>
+    </nav>
+  </header>
+
+  <main>
+    <article>
+      <h1>Pão de Queijo Mineiro</h1>
+      <p>Publicado em <time datetime="2026-08-08">8 de agosto de 2026</time> por Ana.</p>
+
+      <img src="pao-de-queijo.jpg"
+           alt="Pães de queijo dourados em uma assadeira, recém-saídos do forno"
+           width="800" height="450" />
+
+      <section aria-labelledby="ingredientes">
+        <h2 id="ingredientes">Ingredientes</h2>
+        <ul>
+          <li>500 g de polvilho azedo</li>
+          <li>1 xícara de água</li>
+          <li>1 xícara de leite</li>
+          <li>1/2 xícara de óleo</li>
+          <li>2 ovos</li>
+          <li>300 g de queijo meia-cura ralado</li>
+          <li>1 colher (chá) de sal</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="preparo">
+        <h2 id="preparo">Modo de preparo</h2>
+        <ol>
+          <li>Em uma panela, ferva a água, o leite e o óleo.</li>
+          <li>Despeje a mistura quente sobre o polvilho e mexa até incorporar.</li>
+          <li>Espere amornar e adicione os ovos, um a um.</li>
+          <li>Acrescente o queijo e o sal e sove até a massa desgrudar das mãos.</li>
+          <li>Modele bolinhas e asse em forno preaquecido a 200 °C por 30 minutos.</li>
+        </ol>
+      </section>
+
+      <section aria-labelledby="nutricional">
+        <h2 id="nutricional">Informação nutricional (por porção)</h2>
+        <table>
+          <caption>Tabela nutricional — porção de 60 g (2 unidades)</caption>
+          <thead>
+            <tr>
+              <th scope="col">Nutriente</th>
+              <th scope="col">Por porção</th>
+              <th scope="col">%VD</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Calorias</th>
+              <td>220 kcal</td>
+              <td>11%</td>
+            </tr>
+            <tr>
+              <th scope="row">Carboidratos</th>
+              <td>28 g</td>
+              <td>9%</td>
+            </tr>
+            <tr>
+              <th scope="row">Proteínas</th>
+              <td>7 g</td>
+              <td>9%</td>
+            </tr>
+            <tr>
+              <th scope="row">Gorduras totais</th>
+              <td>9 g</td>
+              <td>16%</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section aria-labelledby="comentarios">
+        <h2 id="comentarios">Deixe um comentário</h2>
+        <form action="/api/comentarios" method="post">
+          <div>
+            <label for="nome">Nome</label>
+            <input type="text" id="nome" name="nome" required autocomplete="name" />
+          </div>
+          <div>
+            <label for="email">E-mail (não será publicado)</label>
+            <input type="email" id="email" name="email" required autocomplete="email" />
+          </div>
+          <div>
+            <label for="comentario">Comentário</label>
+            <textarea id="comentario" name="comentario" rows="4" required></textarea>
+          </div>
+          <button type="submit">Enviar comentário</button>
+        </form>
+      </section>
+    </article>
+
+    <aside>
+      <h2>Outras receitas</h2>
+      <ul>
+        <li><a href="/receitas/bolo-fuba">Bolo de fubá cremoso</a></li>
+        <li><a href="/receitas/feijao-tropeiro">Feijão tropeiro</a></li>
+        <li><a href="/receitas/doce-leite">Doce de leite caseiro</a></li>
+      </ul>
+    </aside>
+  </main>
+
+  <footer>
+    <p>© 2026 Cozinha Prática — projeto do capítulo 2 do livro Full Stack Moderno.</p>
+  </footer>
+</body>
+</html>

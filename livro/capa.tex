@@ -1,0 +1,47 @@
+% ============================================================================
+% CAPA (versão digital)
+% PDF (XeLaTeX): capa com fundo em tikz.
+% EPUB (tex4ebook): capa textual simples (o tikz não converte para SVG aqui).
+% ============================================================================
+\thispagestyle{empty}
+\ifdefined\HCode
+  % ---------- Capa para EPUB (textual) ----------
+  \begin{center}
+    \vspace*{4cm}
+    {\bfseries\Huge FULL STACK MODERNO}\\[0.6em]
+    {\Large do zero ao sênior}\\[1.6em]
+    {\large TypeScript \textbullet\ React \textbullet\ Next.js
+     \textbullet\ PostgreSQL \textbullet\ Docker \textbullet\ AWS}\\[2.4em]
+    {\large Um guia completo, didático e prático para o
+     desenvolvimento web full stack}\\[0.4em]
+    \vfill
+    {\normalsize \autordolivro}\\[0.5em]
+    {\small Versão \versaodolivro\ --- \datadolivro}\\[1em]
+    {\small Licença: Creative Commons Atribuição 4.0 Internacional (CC BY 4.0)}\\[0.2em]
+    {\small Código-fonte dos projetos: Licença MIT}
+  \end{center}
+\else
+  % ---------- Capa para PDF (tikz) ----------
+  \begin{tikzpicture}[remember picture, overlay]
+    \fill[primaria] (current page.north west) rectangle (current page.south east);
+    \fill[secundaria] (current page.north west) rectangle ([yshift=-0.28\paperheight]current page.north east);
+  \end{tikzpicture}
+  \vspace*{4.5cm}
+  \begin{center}
+    {\sffamily\bfseries\Huge\color{white} FULL STACK MODERNO}\\[0.6em]
+    {\sffamily\Large\color{white} do zero ao sênior}\\[1.8em]
+    {\sffamily\large\color{azulclaro}
+     TypeScript \,\textbullet\, React \,\textbullet\, Next.js \,\textbullet\, PostgreSQL
+     \,\textbullet\, Docker \,\textbullet\, AWS}\\[2.6em]
+    {\sffamily\large\color{white} Um guia completo, didático e prático para o
+     desenvolvimento web full stack}\\[0.4em]
+  \end{center}
+  \vfill
+  \begin{center}
+    {\sffamily\normalsize\color{azulclaro} \autordolivro}\\[0.5em]
+    {\sffamily\small\color{azulclaro} Versão \versaodolivro\ --- \datadolivro}\\[1.2em]
+    {\sffamily\small\color{azulclaro} Licença: Creative Commons Atribuição 4.0 Internacional (CC BY 4.0)}\\[0.2em]
+    {\sffamily\small\color{azulclaro} Código-fonte dos projetos: Licença MIT}
+  \end{center}
+\fi
+\clearpage

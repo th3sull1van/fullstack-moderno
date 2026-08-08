@@ -1,0 +1,369 @@
+% ============================================================================
+% CAPÍTULO 2 — HTML\index{HTML} semântico e acessibilidade\index{acessibilidade}
+% ============================================================================
+\chapter{HTML Semântico e Acessibilidade}
+\label{cap:html}
+
+\begin{caixaconceito}
+\textbf{HTML} (HyperText Markup Language) é a linguagem de \emph{estrutura} da
+web. Ela não decide como a página parece (isso é CSS) nem como ela se comporta
+(isso é JavaScript): HTML define \emph{o que} cada elemento é.
+\end{caixaconceito}
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Escrever documentos HTML válidos e semanticamente corretos;
+  \item Estruturar páginas com \texttt{header}, \texttt{nav}, \texttt{main}, \texttt{section}, \texttt{article}, \texttt{aside} e \texttt{footer};
+  \item Construir formulários\index{formulários} acessíveis com \texttt{label}, tipos de entrada e validação nativa;
+  \item Aplicar boas práticas de acessibilidade (WCAG) e SEO\index{SEO} básico;
+  \item Entregar o projeto do capítulo: uma página de receitas acessível.
+\end{objetivos}
+
+\section{O papel do HTML: estrutura, não estilo}
+
+Um erro clássico de quem começa é pensar em HTML como ``a parte de deixar
+bonito''. Não é. O HTML é o \emph{esqueleto}: ele diz ao navegador, ao leitor
+de tela, ao buscador e ao seu futuro código que \texttt{<nav>} é navegação,
+\texttt{<article>} é um conteúdo independente e \texttt{<button>} é um botão
+acionável.
+
+Escolher a tag certa tem três consequências práticas:
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item \textbf{Acessibilidade}: leitores de tela anunciam ``navegação'',
+  ``artigo'', ``formulário'' — e permitem navegar por atalhos;
+  \item \textbf{SEO}: os mecanismos de busca entendem melhor a hierarquia e o
+  significado da página;
+  \item \textbf{Manutenção}: seu código fica legível para humanos (inclusive o
+  você do futuro) e para assistentes de IA que leem código.
+\end{itemize}
+
+\section{Anatomia de um documento HTML}
+
+Todo documento começa com a mesma estrutura (Listagem~\ref{list:html-base}):
+
+\begin{lstlisting}[style=livro, language=HTML,
+  caption={Estrutura mínima de um documento HTML5.}, label={list:html-base}]
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Título da página</title>
+  </head>
+  <body>
+    <h1>Conteúdo visível da página</h1>
+  </body>
+</html>
+\end{lstlisting}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item \texttt{<!DOCTYPE html>} — instrui o navegador a usar o padrão HTML5;
+  \item \texttt{<html lang="pt-BR">} — declara o idioma (essencial para
+  leitores de tela e SEO);
+  \item \texttt{<head>} — metadados invisíveis: charset, viewport, título, descrição;
+  \item \texttt{<body>} — todo o conteúdo visível.
+\end{itemize}
+
+\begin{caixaarmadilha}
+Esquecer \texttt{<meta charset="UTF-8">} faz acentos e caracteres especiais
+virarem símbolos estranhos (``caf\'e'' vira ``cafÃ©''). Sempre declare o
+charset — e salve os arquivos como UTF-8.
+\end{caixaarmadilha}
+
+\section{Estrutura semântica da página}
+
+A Listagem~\ref{list:html-semantico} mostra o esqueleto semântico de uma página
+moderna:
+
+\begin{lstlisting}[style=livro, language=HTML,
+  caption={Esqueleto semântico: cada bloco tem um significado.}, label={list:html-semantico}]
+<body>
+  <header>
+    <nav aria-label="Navegação principal">
+      <a href="/">Início</a>
+      <a href="/projetos">Projetos</a>
+      <a href="/contato">Contato</a>
+    </nav>
+  </header>
+
+  <main>
+    <article>
+      <h1>Como publicar seu primeiro site</h1>
+      <p>Publicado em <time datetime="2026-08-08">8 de agosto de 2026</time>.</p>
+      <p>Conteúdo do artigo...</p>
+    </article>
+
+    <aside>
+      <h2>Mais leituras</h2>
+      <ul>
+        <li><a href="/artigos/css">CSS do zero</a></li>
+      </ul>
+    </aside>
+  </main>
+
+  <footer>
+    <p>© 2026 Seu Nome</p>
+  </footer>
+</body>
+\end{lstlisting}
+
+\begin{caixaconceito}
+\textbf{Semântica} = significado. \texttt{<div>} é um bloco genérico
+(``caixa''). As tags semânticas (\texttt{header}, \texttt{nav}, \texttt{main},
+\texttt{section}, \texttt{article}, \texttt{aside}, \texttt{footer}) dizem
+\emph{para que serve} cada caixa. Use \texttt{div} apenas quando nenhuma tag
+semântica se encaixar.
+\end{caixaconceito}
+
+\begin{caixadica}
+Regra de ouro: \textbf{uma página deve ter exatamente um} \texttt{<main>}.
+Nela, apenas um \texttt{<h1>} — o título principal. A hierarquia de títulos
+(\texttt{h1} $\rightarrow$ \texttt{h6}) deve ser contínua, sem pular níveis.
+Leitores de tela usam essa hierarquia como índice de navegação.
+\end{caixadica}
+
+\section{Conteúdo: textos, listas, links e imagens}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item \textbf{Títulos}: \texttt{h1}--\texttt{h6}, em hierarquia;
+  \item \textbf{Parágrafos}: \texttt{<p>};
+  \item \textbf{Ênfase}: \texttt{<strong>} (importância) e \texttt{<em>}
+  (ênfase) — diferentes de \texttt{<b>} e \texttt{<i>}, que são apenas visuais;
+  \item \textbf{Listas}: \texttt{<ul>} (não ordenada), \texttt{<ol>} (ordenada)
+  e \texttt{<dl>} (descrição);
+  \item \textbf{Links}: \texttt{<a href="...">}, sempre com texto descritivo
+  (nunca ``clique aqui'' sem contexto);
+  \item \textbf{Imagens}: \texttt{<img src="..." alt="descrição">} — o atributo
+  \texttt{alt} é obrigatório para acessibilidade;
+  \item \textbf{Citações}: \texttt{<blockquote>} e \texttt{<cite>};
+  \item \textbf{Código}: \texttt{<code>} e \texttt{<pre>}.
+\end{itemize}
+
+\begin{lstlisting}[style=livro, language=HTML,
+  caption={Exemplos rápidos de conteúdo.}, label={list:html-conteudo}]
+<p>Aprendi que <strong>a semântica importa</strong> e que
+   <em>acessibilidade não é opcional</em>.</p>
+
+<ul>
+  <li>HTML</li>
+  <li>CSS</li>
+  <li>JavaScript</li>
+</ul>
+
+<a href="https://developer.mozilla.org" target="_blank" rel="noopener">
+  Documentação da MDN
+</a>
+
+<img src="perfil.png" alt="Foto de perfil de Ana, sorrindo" width="120" height="120" />
+\end{lstlisting}
+
+\begin{caixaarmadilha}
+Em links externos com \texttt{target="\_blank"}, sempre adicione
+\texttt{rel="noopener"} — sem isso, a página aberta pode acessar a página
+original (risco de segurança e performance).
+\end{caixaarmadilha}
+
+\section{Formulários acessíveis}
+
+Formulários são o coração de qualquer aplicação web. A regra nº 1: \textbf{todo
+campo precisa de um} \texttt{<label>} associado. A associação é feita pelo
+atributo \texttt{for} do label apontando para o \texttt{id} do campo.
+
+\begin{lstlisting}[style=livro, language=HTML,
+  caption={Formulário acessível com validação nativa.}, label={list:html-form}]
+<form action="/api/contato" method="post">
+  <div>
+    <label for="nome">Nome completo</label>
+    <input type="text" id="nome" name="nome" required
+           autocomplete="name" minlength="3" />
+  </div>
+
+  <div>
+    <label for="email">E-mail</label>
+    <input type="email" id="email" name="email" required
+           autocomplete="email" />
+  </div>
+
+  <div>
+    <label for="mensagem">Mensagem</label>
+    <textarea id="mensagem" name="mensagem" rows="5" required></textarea>
+  </div>
+
+  <fieldset>
+    <legend>Como prefere ser contatado?</legend>
+    <label><input type="radio" name="canal" value="email" /> E-mail</label>
+    <label><input type="radio" name="canal" value="telefone" /> Telefone</label>
+  </fieldset>
+
+  <button type="submit">Enviar mensagem</button>
+</form>
+\end{lstlisting}
+
+Destaques do exemplo:
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item \texttt{type="email"} dispara validação nativa de e-mail no navegador;
+  \item \texttt{required} impede envio sem preenchimento e anuncia o erro ao leitor de tela;
+  \item \texttt{autocomplete} preenche automaticamente e ajuda usuários com deficiência motora;
+  \item \texttt{<fieldset>} + \texttt{<legend>} agrupa opções relacionadas (radio buttons);
+  \item \texttt{<button type="submit">} envia o formulário — \emph{sempre} use
+  \texttt{type}, senão o padrão muda de acordo com o contexto.
+\end{itemize}
+
+\begin{caixadica}
+Nunca use \texttt{<div onclick="...">} como botão: ele não é focável, não
+responde a \texttt{Enter}, não é anunciado pelo leitor de tela e quebra a
+acessibilidade. Botão é \texttt{<button>}, ponto.
+\end{caixadica}
+
+\section{Acessibilidade: o básico das WCAG}
+
+Acessibilidade web segue as diretrizes \textbf{WCAG} (Web Content Accessibility
+Guidelines). O essencial para começar:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Alternativas textuais}: \texttt{alt} em imagens, transcrição em vídeos;
+  \item \textbf{Teclado}: toda ação deve ser possível só com o teclado (Tab,
+  Enter, setas); respeite a ordem natural de foco;
+  \item \textbf{Contraste}: texto sobre fundo com contraste mínimo de 4,5:1
+  (texto normal);
+  \item \textbf{ARIA}: use \texttt{role}, \texttt{aria-label} e
+  \texttt{aria-live} quando necessário — mas prefira HTML nativo sempre que
+  possível. ``Nenhum ARIA\index{ARIA} é melhor que ARIA ruim.''
+  \item \textbf{Idioma}: \texttt{lang="pt-BR"} já declarado no \texttt{<html>}.
+\end{itemize}
+
+\begin{caixaconceito}
+\textbf{ARIA} (Accessible Rich Internet Applications) é um conjunto de
+atributos\index{atributos} que informa tecnologias assistivas sobre o papel e o estado de
+elementos. O exemplo mais comum: \texttt{aria-live="polite"} em uma região que
+recebe atualizações dinâmicas (como o contador de caracteres do portfólio do
+capítulo~\ref{cap:universo}).
+\end{caixaconceito}
+
+\section{SEO básico: o que colocar no \texttt{<head>}}
+
+O \texttt{<head>} define como sua página aparece no Google e nas redes sociais:
+
+\begin{lstlisting}[style=livro, language=HTML,
+  caption={Metadados de SEO e redes sociais.}, label={list:html-seo}]
+<title>Receita de Pão de Queijo Mineiro | Cozinha Prática</title>
+<meta name="description"
+      content="Aprenda a fazer pão de queijo perfeito em 40 minutos: 6 ingredientes e o passo a passo completo." />
+<meta property="og:title" content="Pão de Queijo Mineiro" />
+<meta property="og:description" content="Receita infalível de pão de queijo." />
+<meta property="og:type" content="article" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+\end{lstlisting}
+
+\begin{caixadica}
+O \texttt{<title>} e a \texttt{meta description} são o ``anúncio'' da sua
+página nos resultados de busca. Escreva-os para humanos: descrição objetiva,
+com a informação principal nos primeiros 120 caracteres.
+\end{caixadica}
+
+% ============================================================================
+\section{Projeto do capítulo: página de receitas acessível}
+\label{sec:projeto2}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} criar uma página de receita completa — semântica, acessível
+e com SEO básico. O tema é livre; sugerimos algo que você cozinhe de verdade.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Um \texttt{<main>}, um \texttt{<h1>} e hierarquia de títulos contínua;
+  \item Estrutura \texttt{header/nav/main/article/aside/footer} aplicada com coerência;
+  \item Lista de ingredientes (\texttt{ul}) e modo de preparo (\texttt{ol});
+  \item Tabela nutricional com \texttt{<table>} + \texttt{<caption>};
+  \item Formulário de comentário com labels associados;
+  \item Imagem com \texttt{alt} descritivo e \texttt{lang="pt-BR"} declarado;
+  \item Passa no validador do W3C sem erros.
+\end{itemize}
+\end{caixaprojeto}
+
+O arquivo completo está em
+\texttt{codigo/cap02-receita/index.html} (Listagem~\ref{list:receita}):
+%\clearpage
+\lstinputlisting[style=livro, language=HTML,
+  caption={Página de receita acessível — \texttt{codigo/cap02-receita/index.html}.},
+  label={list:receita}]
+  {\codigopath/cap02-receita/index.html}
+
+\begin{caixadica}
+Teste a acessibilidade na prática: (1) navegue a página só com \texttt{Tab};
+(2) use o leitor de tela do seu sistema operacional por 2 minutos; (3) rode o
+\href{https://developers.google.com/web/tools/lighthouse}{Lighthouse} do Chrome
+(DevTools $\rightarrow$ Lighthouse $\rightarrow$ Accessibility). Esses três
+testes revelam 90\% dos problemas.
+\end{caixadica}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Explique a diferença entre \texttt{<div>} e \texttt{<section>}. Dê um
+  exemplo em que cada um é a escolha certa.
+  \item Por que a página deve ter apenas um \texttt{<main>} e um \texttt{<h1>}?
+  \item Escreva o HTML de um formulário de login (e-mail + senha + botão) com
+  labels associados e \texttt{autocomplete} correto.
+  \item Qual é o atributo obrigatório em toda imagem e por quê?
+  \item O que fazem \texttt{<fieldset>} e \texttt{<legend>}? Quando usá-los?
+  \item Liste três práticas de SEO aplicáveis apenas ao \texttt{<head>}.
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Tabela nutricional:} crie uma tabela com 4 linhas e 3 colunas
+  (nutriente, por porção, \%VD), com \texttt{<caption>} e \texttt{<th scope>}
+  corretos.
+  \item \textbf{Agenda de eventos:} estruture uma lista de 3 eventos usando
+  \texttt{<article>} e \texttt{<time datetime>} com datas reais.
+  \item \textbf{Formulário complexo:} monte um formulário de cadastro com
+  \texttt{select}, \texttt{checkbox}, \texttt{radio} e \texttt{range}, tudo com
+  labels e \texttt{fieldset}.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Auditoria WCAG:} escolha uma página pública (de uma prefeitura,
+  loja ou portal), identifique 3 violações de acessibilidade reais e proponha
+  o HTML corrigido para cada uma.
+  \item \textbf{HTML \emph{progressive enhancement}:} explique, com um exemplo
+  de formulário, a diferença entre funcionar ``sem JavaScript'' e ``só com
+  JavaScript''. Qual abordagem as grandes aplicações usam e por quê?
+  \item \textbf{Dados estruturados:} adicione à página de receita um
+  \texttt{<script type="application/ld+json">} com o schema
+  \texttt{Recipe} (JSON-LD) e valide em \url{https://validator.schema.org}.
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Usar \texttt{<div>} para tudo — ``divite'' é o anti-padrão nº 1;
+  \item Esquecer o \texttt{<label for>}, deixando campos sem nome para o leitor de tela;
+  \item Usar \texttt{<br>} para espaçamento (isso é trabalho do CSS);
+  \item Tabelas usadas para layout (isso é trabalho do CSS/Grid);
+  \item Ignorar o \texttt{lang} — leitores de tela pronunciam errado sem ele.
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item HTML define estrutura e significado, não aparência;
+  \item Tags semânticas melhoram acessibilidade, SEO e manutenção;
+  \item Todo campo de formulário exige \texttt{<label>} associado;
+  \item Acessibilidade (WCAG) começa com \texttt{alt}, teclado e contraste;
+  \item SEO básico vive no \texttt{<head>}: title, description e Open Graph;
+  \item Projeto entregue: página de receitas acessível e validada.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item MDN — HTML: \url{https://developer.mozilla.org/pt-BR/docs/Web/HTML}
+  \item HTML Living Standard (WHATWG): \url{https://html.spec.whatwg.org/}
+  \item W3C — Validador de HTML: \url{https://validator.w3.org}
+  \item WCAG 2.2 (W3C): \url{https://www.w3.org/WAI/WCAG22/Overview}
+  \item MDN — Formulários acessíveis: \url{https://developer.mozilla.org/en-US/docs/Learn/Forms}
+\end{itemize}

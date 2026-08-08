@@ -1,0 +1,319 @@
+% ============================================================================
+% CAPÍTULO 19 — Segurança\index{segurança} web
+% Status: texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{Segurança Web}
+\label{cap:seguranca}
+
+\begin{caixaconceito}
+Segurança não é uma feature: é uma propriedade do sistema. Este capítulo segue
+o \textbf{OWASP Top 10:2025} \cite{owasp2025} — a referência mundial de riscos
+de aplicações web — e aplica cada item na prática, com ataques reproduzidos e
+corrigidos.
+\end{caixaconceito}
+
+Existe uma pergunta que todo código publicado deveria responder: ``o que
+acontece se alguém usar esta funcionalidade contra o próprio sistema?''
+Autenticação resolve \emph{quem é você}; segurança resolve \emph{o que você
+pode fazer} — e o que um atacante pode fazer \emph{com} o que você construiu.
+Este capítulo muda sua postura: em vez de ``fazer funcionar'', você vai
+aprender a \emph{quebrar} e depois \emph{consertar}, porque é assim que a
+defesa se aprende de verdade.
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Explicar os 10 riscos do OWASP Top 10\index{OWASP Top 10}:2025 com exemplos reais;
+  \item Prevenir XSS\index{XSS}, CSRF\index{CSRF}, SQL injection\index{SQL injection} e SSRF nas suas aplicações;
+  \item Aplicar headers de segurança\index{headers de segurança} e Content Security Policy;
+  \item Gerenciar dependências contra falhas de supply chain;
+  \item Auditar e corrigir vulnerabilidades com ferramentas (npm audit, scanners);
+  \item Entregar o projeto do capítulo: o hardening do SkillHub.
+\end{objetivos}
+
+\section{OWASP Top 10:2025 — o mapa dos riscos}
+
+O OWASP (Open Worldwide Application Security Project) publica a cada anos o
+Top 10: a lista dos riscos mais explorados em aplicações web, baseada em dados
+de milhares de empresas. Em 2025, a lista passou a considerar não só
+\emph{exploração} mas também \emph{impacto} — e incluiu riscos que dependem da
+cadeia de suprimentos e do design, não só do código:
+
+\begin{table}[h]
+\centering
+\small
+\caption{OWASP Top 10:2025 — visão geral \cite{owasp2025}.}
+\label{tab:owasp}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{1.6cm} X@{}}
+\toprule
+\textbf{Código} & \textbf{Risco} \\
+\midrule
+A01 & Controle de acesso quebrado (Broken Access Control) \\
+A02 & Má configuração de segurança (Security Misconfiguration) \\
+A03 & Falhas na cadeia de suprimentos de software (Supply Chain) \\
+A04 & Falhas criptográficas (Cryptographic Failures) \\
+A05 & Injeção (Injection) \\
+A06 & Design inseguro (Insecure Design) \\
+A07 & Falhas de autenticação (Authentication Failures) \\
+A08 & Falhas de integridade de software e dados (Integrity Failures) \\
+A09 & Falhas de registro e monitoramento (Logging and Monitoring) \\
+A10 & Falsificação de requisição no servidor (SSRF) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{caixaconceito}
+Observe o que mudou de mentalidade: A06 (design inseguro) e A09 (logging e
+monitoramento) não são ``bugs'' — são \emph{ausências}. O atacante moderno não
+precisa de uma falha de código; precisa de uma decisão de design que nunca foi
+questionada. Por isso segurança começa no modelo de ameaças, não no scanner.
+\end{caixaconceito}
+
+\section{A05: Injection (SQL injection)}
+
+Injeção é a família de ataques em que a entrada do usuário é interpretada como
+\emph{código}. O caso clássico é o SQL: se o e-mail digitado for
+\emph{colado} na query, aspas e comandos do usuário entram na instrução:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Vulnerável vs seguro contra SQL injection.}, label={list:seg-sql}]
+// VULNERÁVEL — nunca concatene SQL com entrada do usuário!
+const sql = `SELECT * FROM usuarios WHERE email = '${email}'`;
+
+// SEGURO — parâmetros parametrizados (ou Prisma/Drizzle, cap. 13)
+const resultado = await db.query(
+  "SELECT * FROM usuarios WHERE email = $1",
+  [email],
+);
+\end{lstlisting}
+
+\begin{caixaconceito}
+Injeção acontece quando entrada do usuário é interpretada como código.
+\emph{Toda} entrada externa é hostil: use queries parametrizadas (ou ORM),
+nunca string concatenada. O ORM (capítulo~\ref{cap:orms}) já protege isso
+automaticamente — mais um motivo para usá-lo.
+\end{caixaconceito}
+
+O mesmo princípio vale para outros contextos: injeção de \texttt{LDAP}, de
+\texttt{OS command} (nunca passe entrada do usuário para \texttt{exec}), de
+\texttt{e-mail header} (injeção de \texttt{Bcc:} em formulários de contato) e
+de \texttt{NoSQL} (operadores \texttt{\$} em queries do MongoDB). A defesa é
+sempre a mesma: \emph{nunca concatene, sempre parametrize}.
+
+\section{XSS: Cross-Site Scripting}
+
+XSS é injeção de \emph{JavaScript} na página de outra pessoa. Quando um
+comentário contém \texttt{<script>}, e a aplicação o insere via
+\texttt{innerHTML}, o navegador executa — com a \emph{sessão e o domínio} da
+vítima:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Vulnerável vs seguro contra XSS.}, label={list:seg-xss}]
+// VULNERÁVEL — innerHTML executa scripts embutidos no texto
+elemento.innerHTML = comentario.texto;
+
+// SEGURO — textContent trata o texto como texto, nunca como HTML
+elemento.textContent = comentario.texto;
+
+// Em React/Next.js: {comentario.texto} já escapa por padrão.
+// Só use dangerouslySetInnerHTML se sanitizar com DOMPurify.
+\end{lstlisting}
+
+\begin{caixaconceito}
+\textbf{XSS} injeta scripts que roubam cookies, tokens e dados do usuário. O
+React escapa por padrão; o perigo real está em \texttt{innerHTML},
+\texttt{dangerouslySetInnerHTML}, \texttt{eval} e markdown renderizado sem
+sanitização. Teste: \texttt{<img src=x onerror=alert(1)>} em todo campo de
+texto.
+\end{caixaconceito}
+
+Existem três sabores: \textbf{refletido} (o payload vem na URL e volta na
+página, ex.: \texttt{?busca=<script>}), \textbf{armazenado} (o payload fica no
+banco e é exibido para todos — o pior caso, pois atinge cada visitante) e
+\textbf{DOM-based} (o ataque acontece no JavaScript do cliente, sem passar
+pelo servidor). A defesa em camadas: escape na saída (React faz isso),
+sanitização quando HTML é necessário (DOMPurify) e CSP\index{CSP} restringindo o que
+pode executar.
+
+\section{CSRF: Cross-Site Request Forgery}
+
+Enquanto o XSS rouba a sessão, o \textbf{CSRF} a \emph{usa sem roubar}: o
+atacante engana o navegador da vítima para que ele envie uma requisição
+autenticada a um site confiável. Se você está logado no banco e visita uma
+página maliciosa com \texttt{<img src="https://banco.com/transferir?valor=1000">},
+o navegador envia seus cookies e o servidor não percebe a diferença.
+
+Defesas: tokens CSRF (o formulário carrega um token que o atacante não
+conhece), cookies \texttt{SameSite=Lax/Strict} (não enviados em requisições
+cross-site) e verificação de origem. No Next.js, as Server Actions já geram e
+validam tokens internamente — mais uma razão para o modelo do
+capítulo~\ref{cap:fullstack} ser seguro por padrão.
+
+\section{Headers de segurança e CSP}
+
+O navegador é seu segundo firewall. Uma família de headers HTTP diz a ele
+como se comportar diante de conteúdo estranho:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Headers de segurança com helmet (Fastify/Express).},
+  label={list:seg-headers}]
+import helmet from "@fastify/helmet";
+
+await app.register(helmet);
+// Define automaticamente: X-Content-Type-Options, X-Frame-Options,
+// Referrer-Policy, HSTS e um Content-Security-Policy razoável.
+\end{lstlisting}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \texttt{Content-Security-Policy}: lista de onde scripts/estilos podem vir — a defesa mais forte contra XSS;
+  \item \texttt{HSTS}: força HTTPS;
+  \item \texttt{X-Frame-Options} / \texttt{frame-ancestors}: bloqueia clickjacking;
+  \item \texttt{X-Content-Type-Options: nosniff}: impede MIME sniffing.
+\end{itemize}
+
+\begin{caixadica}
+Uma CSP restritiva (\texttt{default-src 'self'}) quebra a primeira vez que
+você a aplica — e é exatamente isso que ela deve fazer: revelar de onde seu
+site \emph{realmente} carrega recursos. Ajuste cada diretiva com evidência
+(``este script vem do meu domínio'') e o resultado é uma lista de permissões
+que o atacante não consegue contornar para executar código.
+\end{caixadica}
+
+\section{A03: Supply chain e dependências}
+
+O npm instala o ecossistema inteiro no seu projeto — incluindo os riscos dele.
+Um pacote malicioso ou comprometido vira o seu comprometido (foi assim que o
+famoso incidente do \texttt{event-stream} de 2018 roubou carteiras de
+bitcoin):
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \texttt{npm audit} + \texttt{npm audit fix} — vulnerabilidades conhecidas;
+  \item \textbf{Dependabot} (GitHub): PRs automáticos de atualização;
+  \item \textbf{Pinagem e lockfile}: \texttt{package-lock.json} versionado garante builds reproduzíveis;
+  \item \textbf{Menos dependências} = menor superfície de ataque (uma biblioteca a menos é uma vulnerabilidade a menos);
+  \item \textbf{SBOM} (lista de componentes) para auditoria e resposta a incidentes.
+\end{itemize}
+
+\begin{caixaconceito}
+Pergunte antes de instalar: ``o que este pacote faz, quem mantém, quantos
+mantenedores, quando foi atualizado pela última vez?''. Uma dependência
+obscura com 3 downloads por semana resolvendo um problema de 3 linhas é mais
+risco que conveniência. O custo de escrever as 3 linhas é menor que o custo de
+auditar um pacote comprometido.
+\end{caixaconceito}
+
+\section{A01, A07, A08, A09, A10 na prática}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{A01 — acesso quebrado}: default deny, RBAC por servidor (capítulo~\ref{cap:auth}), nunca confie em ``esconder botões'' no cliente;
+  \item \textbf{A07 — autenticação}: senhas argon2, MFA, rate limit, mensagens genéricas (capítulo~\ref{cap:auth});
+  \item \textbf{A08 — integridade}: assinatura de tokens/arquivos, validação de dados na borda, \texttt{integrity} em CDNs;
+  \item \textbf{A09 — logging}: registre eventos de segurança (login, permissão negada, erro) com contexto — e monitore (capítulo~\ref{cap:observabilidade});
+  \item \textbf{A10 — SSRF}: nunca faça \texttt{fetch} em URLs fornecidas pelo usuário sem validar (allowlist de domínios, bloqueio de IPs privados).
+\end{itemize}
+
+\begin{caixaconceito}
+\textbf{SSRF} é o inverso do XSS: em vez de injetar código no navegador, o
+atacante faz o \emph{servidor} acessar o que não deveria. Uma funcionalidade
+``buscar imagem por URL'' pode virar um túnel para a rede interna
+(\texttt{http://169.254.169.254} — o metadata da AWS — é o alvo clássico).
+Regra: entradas de URL exigem allowlist de domínio + bloqueio de IP privado,
+ou simplesmente não existem.
+\end{caixaconceito}
+
+% ============================================================================
+\section{Projeto do capítulo: hardening do SkillHub}
+\label{sec:projeto19}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} auditar e endurecer o SkillHub contra o OWASP Top 10:2025.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Relatório de auditoria cobrindo os 10 itens do OWASP (estado atual + correção);
+  \item SQL injection e XSS eliminados (verifique com testes de ataque);
+  \item Headers de segurança e CSP aplicados e validados (\url{https://securityheaders.com});
+  \item \texttt{npm audit} sem vulnerabilidades críticas; Dependabot ativo;
+  \item Rate limit e mensagens de erro genéricas em login;
+  \item SSRF bloqueado em qualquer funcionalidade que consuma URLs;
+  \item Logs de segurança com contexto, prontos para monitoramento (capítulo~\ref{cap:observabilidade});
+  \item Testes de regressão que reproduzem os ataques e comprovam a defesa.
+\end{itemize}
+\end{caixaprojeto}
+
+\subsection{Passo a passo}
+
+\begin{passos}
+  \item \textbf{Inventário}: liste cada funcionalidade que recebe entrada do
+  usuário (formulários, busca, upload, URLs) — este é o seu mapa de ataque;
+  \item \textbf{Reproduza}: para cada entrada, teste os payloads clássicos
+  (SQL: \texttt{' OR 1=1 --}; XSS: \texttt{<script>}, \texttt{onerror});
+  \item \textbf{Corrija}: parametrize, escape, sanitize — e escreva o teste de
+  regressão que prova a defesa;
+  \item \textbf{Headers}: aplique o helmet/Next.js headers e valide em
+  securityheaders.com;
+  \item \textbf{Supply chain}: rode \texttt{npm audit}, ative o Dependabot e
+  documente o SBOM;
+  \item \textbf{Auth}: confira rate limit, mensagens genéricas e RBAC em toda
+  mutação;
+  \item \textbf{Relatório}: escreva o relatório de auditoria — estado atual,
+  correção, prova (teste/scan) — para cada item do OWASP.
+\end{passos}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Liste os 10 riscos do OWASP Top 10:2025 de memória.
+  \item Explique como a SQL injection funciona e as duas defesas principais.
+  \item Qual a diferença entre XSS e CSRF? Dê um exemplo de cada.
+  \item O que uma Content Security Policy restringe?
+  \item Por que ``esconder'' um botão de admin no frontend não é controle de acesso?
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Reproduza e corrija}: em um projeto de teste, injete XSS e SQL injection, documente o impacto, e mostre a correção (testes de regressão inclusos).
+  \item \textbf{CSP forte}: escreva uma CSP restritiva para o SkillHub (scripts apenas do próprio domínio) e ajuste até o site funcionar sem erros de console.
+  \item \textbf{Scanner local}: rode o \texttt{zap} (OWASP ZAP) contra sua API e corrija as falhas encontradas.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Threat modeling}: faça um STRIDE do SkillHub (Spoofing, Tampering, Repudiation, Info disclosure, DoS, Elevation) e priorize os riscos com um simples CVSS.
+  \item \textbf{Segredos em produção}: implemente rotação de segredos e documente o procedimento de resposta a um vazamento.
+  \item \textbf{Bug bounty mindset}: encontre 3 vulnerabilidades reais em aplicações de demonstração (DVWA, Juice Shop) e escreva o relatório como faria para um programa de recompensas.
+  \item \textbf{Auditoria de terceiros}: para cada dependência crítica do projeto, documente: para que serve, quem mantém, última auditoria, e plano B (alternativa).
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item ``Só HTTPS basta'' (HTTPS protege o trânsito, não a aplicação);
+  \item Desativar o React Strict Mode ou usar \texttt{eval} ``só desta vez'';
+  \item Segredos no \texttt{.env} versionado ou no frontend;
+  \item Nunca testar os caminhos de erro (é onde os atacantes vivem);
+  \item Segurança ``no fim'' do projeto — deve ser pensada desde o design (A06);
+  \item Confiar em ``segurança por obscuridade'' (URLs secretas, IDs difíceis de adivinhar) como controle de acesso.
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item OWASP Top 10:2025 é o mapa de riscos: acesso, config, supply chain, cripto, injeção, design, auth, integridade, logging, SSRF;
+  \item Query parametrizada + escape automático (React) eliminam injeção e XSS;
+  \item Headers de segurança + CSP endurecem o navegador;
+  \item \texttt{npm audit} + Dependabot cuidam da supply chain;
+  \item Default deny, logging com contexto e SSRF validado são cultura de senior;
+  \item Projeto entregue: SkillHub auditado e endurecido.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item OWASP Top 10:2025: \url{https://owasp.org/Top10/2025/en/}
+  \item OWASP Cheat Sheets: \url{https://cheatsheetseries.owasp.org}
+  \item OWASP ZAP (scanner): \url{https://www.zaproxy.org}
+  \item securityheaders.com (verificador): \url{https://securityheaders.com}
+  \item MDN — Security: \url{https://developer.mozilla.org/en-US/docs/Web/Security}
+\end{itemize}

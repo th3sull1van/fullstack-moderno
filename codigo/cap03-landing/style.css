@@ -1,0 +1,245 @@
+/* ============================================================
+   OrçaFácil — landing page (mobile-first)
+   Design system via variáveis CSS
+   ============================================================ */
+
+:root {
+  --cor-primaria: #1f4e79;
+  --cor-secundaria: #2e86ab;
+  --cor-acento: #f4a261;
+  --cor-fundo: #f7f9fb;
+  --cor-texto: #22313f;
+  --cor-borda: #d7dee5;
+  --raio: 10px;
+  --sombra: 0 4px 12px rgba(31, 78, 121, 0.12);
+  --fonte: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--fonte);
+  color: var(--cor-texto);
+  background-color: var(--cor-fundo);
+  line-height: 1.6;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--cor-primaria);
+  line-height: 1.2;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ---------- Navbar ---------- */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.logo {
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: var(--cor-primaria);
+  text-decoration: none;
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.menu a {
+  color: var(--cor-texto);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.menu a:hover {
+  color: var(--cor-secundaria);
+}
+
+/* ---------- Hero ---------- */
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 3rem 1.25rem;
+  max-width: 960px;
+  margin-inline: auto;
+}
+
+.hero h1 {
+  font-size: 2.2rem;
+  margin: 0 0 1rem;
+}
+
+.hero-subtitulo {
+  font-size: 1.1rem;
+}
+
+.hero-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* ---------- Botões ---------- */
+.botao {
+  display: inline-block;
+  padding: 0.8rem 1.6rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 700;
+  transition: background-color 200ms ease, transform 200ms ease;
+}
+
+.botao--primario {
+  background-color: var(--cor-primaria);
+  color: #ffffff;
+}
+
+.botao--primario:hover {
+  background-color: var(--cor-secundaria);
+  transform: translateY(-2px);
+}
+
+.botao--secundario {
+  background-color: #ffffff;
+  color: var(--cor-primaria);
+  border: 2px solid var(--cor-primaria);
+}
+
+.botao--secundario:hover {
+  background-color: var(--cor-primaria);
+  color: #ffffff;
+}
+
+/* ---------- Seções ---------- */
+section {
+  max-width: 960px;
+  margin-inline: auto;
+  padding: 2rem 1.25rem;
+}
+
+h2 {
+  font-size: 1.7rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ---------- Grade de recursos (Grid responsivo) ---------- */
+.grade-recursos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.card {
+  background-color: #ffffff;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: 1.5rem;
+  box-shadow: var(--sombra);
+}
+
+/* ---------- Planos (Flexbox) ---------- */
+.grade-planos {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.plano {
+  background-color: #ffffff;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.plano--destaque {
+  border: 3px solid var(--cor-acento);
+  box-shadow: var(--sombra);
+}
+
+.preco {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--cor-primaria);
+  margin: 0;
+}
+
+/* ---------- Formulário ---------- */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 420px;
+}
+
+label {
+  font-weight: 700;
+}
+
+input {
+  font: inherit;
+  padding: 0.7rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+}
+
+/* ---------- Rodapé ---------- */
+.rodape {
+  text-align: center;
+  padding: 2rem 1.25rem;
+  background-color: #e8eef3;
+  font-size: 0.9rem;
+}
+
+/* ============================================================
+   Desktop (a partir de 768px)
+   ============================================================ */
+@media (min-width: 768px) {
+  .menu {
+    flex-direction: row;
+    gap: 1.5rem;
+  }
+
+  .hero {
+    flex-direction: row;
+    align-items: center;
+    padding: 5rem 1.25rem;
+  }
+
+  .hero h1 {
+    font-size: 2.8rem;
+  }
+
+  .grade-planos {
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  .plano {
+    flex: 1;
+    max-width: 320px;
+  }
+}

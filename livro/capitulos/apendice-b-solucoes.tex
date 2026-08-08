@@ -1,0 +1,136 @@
+% ============================================================================
+% APÊNDICE B — Soluções dos exercícios
+% ============================================================================
+\chapter{Soluções dos Exercícios}
+\label{apendice:solucoes}
+
+\begin{caixaconceito}
+Política editorial: as soluções completas, executáveis e testadas vivem no
+repositório de código (\texttt{codigo/--solucoes/}), organizadas por capítulo.
+Este apêndice explica o padrão e traz as soluções comentadas dos exercícios
+essenciais das Partes I e II.
+\end{caixaconceito}
+
+\section{Como usar as soluções}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Primeiro tente sozinho}: a solução só ensina depois que você
+  tentou (e errou) — o erro é parte do aprendizado;
+  \item \textbf{Compare, não copie}: leia a solução, feche o arquivo e
+  reescreva do seu jeito;
+  \item \textbf{Teste sempre}: toda solução tem pelo menos um teste
+  (Vitest) — se não passa, não é solução;
+  \item \textbf{Critérios de avaliação}: os projetos têm checklist no README
+  de cada capítulo (você pode usar como rubrica de autoavaliação).
+\end{itemize}
+
+\section{Estrutura do diretório de soluções}
+
+\begin{lstlisting}[style=livro, language=Bash, caption={Organização das soluções.}, label={list:sol-estrutura}]
+codigo/--solucoes/
+  README.md                 # como usar + cobertura
+  cap01/  solucoes-cap01.md # gabarito comentado
+  cap02/  solucoes-cap02.md
+  ...
+  cap25/  solucoes-cap25.md
+\end{lstlisting}
+
+\section{Soluções comentadas — Capítulo 1}
+
+\begin{exercicios}
+  \item \textbf{Frontend vs backend vs full stack}: o frontend roda no
+  navegador (HTML/CSS/JS); o backend roda no servidor (APIs, regras de
+  negócio); o full stack transita pelas duas camadas, além de banco e infra.
+  \item \textbf{Top 3 tecnologias} (SO Survey 2025): JavaScript (linguagem),
+  SQL (tecnologia geral), React (framework web) — com PostgreSQL como banco nº 1
+  e Node.js líder entre runtimes.
+  \item \textbf{Jornada da requisição}: DNS $\rightarrow$ conexão TLS
+  $\rightarrow$ requisição HTTP $\rightarrow$ processamento no servidor
+  $\rightarrow$ resposta com status e conteúdo $\rightarrow$ renderização e
+  execução de JS $\rightarrow$ (se necessário) novas requisições via fetch.
+\end{exercicios}
+
+\section{Soluções comentadas — Capítulo 2}
+
+\begin{exercicios}
+  \item \textbf{\texttt{div} vs \texttt{section}}: \texttt{section} tem
+  significado (agrupa conteúdo relacionado, idealmente com heading); \texttt{div}
+  é genérico. Ex.: \texttt{<section>} para ``ingredientes''; \texttt{<div>}
+  para um wrapper de layout sem significado.
+  \item \textbf{Um \texttt{main} e um \texttt{h1}} por página: são os marcos
+  que leitores de tela e buscadores usam para estruturar a navegação.
+  \item \textbf{Formulário de login}:
+\end{exercicios}
+
+\begin{lstlisting}[style=livro, language=HTML, caption={Solução: formulário de login acessível.}, label={list:sol-login}]
+<form action="/api/login" method="post">
+  <div>
+    <label for="email">E-mail</label>
+    <input type="email" id="email" name="email"
+           required autocomplete="email" />
+  </div>
+  <div>
+    <label for="senha">Senha</label>
+    <input type="password" id="senha" name="senha"
+           required autocomplete="current-password" minlength="8" />
+  </div>
+  <button type="submit">Entrar</button>
+</form>
+\end{lstlisting}
+
+\section{Soluções comentadas — Capítulo 3}
+
+\begin{exercicios}
+  \item \textbf{Especificidade vs cascata}: a especificidade decide \emph{qual
+  regra} (mais específico vence); a cascata decide \emph{qual declaração}
+  quando empatadas (a última escrita). Ex.: \texttt{.botao} (classe) vence
+  \texttt{button} (tag); dois \texttt{.botao} — vence o último.
+  \item \textbf{Box model}: sem \texttt{border-box}, \texttt{width: 300px} +
+  \texttt{padding: 30px} resulta em 360px totais (conteúdo 300 + 2$\times$30).
+  Com \texttt{border-box}, os 300px incluem o padding.
+  \item \textbf{Centralização com Flexbox}:
+\end{exercicios}
+
+\begin{lstlisting}[style=livro, language=CSS, caption={Solução: centralização perfeita.}, label={list:sol-flex}]
+.centro {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh; /* ou height fixa do container */
+}
+\end{lstlisting}
+
+\section{Soluções comentadas — Capítulo 4}
+
+\begin{exercicios}
+  \item \textbf{\texttt{const} vs \texttt{let} vs \texttt{var}}:
+  \texttt{const} não reatribui; \texttt{let} reatribui com escopo de bloco;
+  \texttt{var} tem escopo de função e permite redeclaração (causa bugs).
+  \item \textbf{\texttt{===} vs \texttt{==}}: \texttt{==} faz coerção implícita
+  (\texttt{0 == false} é \texttt{true}); \texttt{===} exige valor e tipo iguais.
+  \item \textbf{map/filter/reduce}:
+\end{exercicios}
+
+\begin{lstlisting}[style=livro, language=JavaScript, caption={Solução: map/filter/reduce.}, label={list:sol-map}]
+const nums = [1, 2, 3, 4, 5];
+const dobrados = nums.map((n) => n * 2);        // [2,4,6,8,10]
+const pares = nums.filter((n) => n % 2 === 0);  // [2,4]
+const soma = nums.reduce((acc, n) => acc + n, 0); // 15
+\end{lstlisting}
+
+\section{Soluções dos demais capítulos}
+
+Os gabaritos comentados dos \emph{exercícios de fixação} de todos os
+capítulos 5--25 (e os das Partes I e II acima) vivem em
+\texttt{codigo/--solucoes/capNN/solucoes-capNN.md}. O arquivo
+\texttt{codigo/--solucoes/README.md} explica como usar e o que cada arquivo
+cobre.
+
+\begin{caixadica}
+\textbf{Por que desafios e nível sênior não têm gabarito?} São exercícios
+abertos, com muitas soluções válidas. A verificação deles é o código
+\emph{rodando}: cada projeto-base em \texttt{codigo/capNN-projeto/} tem
+critérios de aceite e testes — se a sua solução passa nos testes e cumpre os
+critérios, ela está correta. Essa é a mesma régua usada no mercado (code
+review + testes), e comparar com um gabarito fechado ensinaria menos.
+\end{caixadica}

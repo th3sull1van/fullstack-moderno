@@ -1,0 +1,67 @@
+% ============================================================================
+% APÊNDICE C — Glossário
+% ============================================================================
+\chapter{Glossário}
+\label{apendice:glossario}
+
+Glossário essencial do full stack — os termos que aparecem em vagas,
+entrevistas e documentações. Os termos em português seguem a forma consagrada
+no mercado brasileiro.
+
+\begin{description}[leftmargin=*, itemsep=0.5em]
+  \item[API (Application Programming Interface)] Contrato de comunicação entre
+  sistemas; no contexto web, normalmente endpoints HTTP que devolvem JSON.
+  \item[Assíncrono] Operação que não bloqueia a execução: o programa segue
+  rodando e trata o resultado quando ele chega (promises, \texttt{await}).
+  \item[Autenticação] Processo de provar quem você é (login).
+  \item[Autorização] Processo de decidir o que uma identidade autenticada pode fazer (permissões).
+  \item[Backend] Camada que roda no servidor: lógica de negócio, APIs, banco de dados.
+  \item[Cache] Armazenamento de resultados prontos para evitar recomputar/buscar de novo.
+  \item[CI/CD] Integração Contínua (testes automáticos a cada mudança) e Entrega Contínua (publicação/deploy automáticos).
+  \item[Client] Programa que consome um serviço (navegador, app mobile, outro servidor).
+  \item[Contêiner] Pacote executável com aplicação + dependências, isolado e portável (Docker).
+  \item[Core Web Vitals] Métricas de experiência do usuário medidas pelo Google: LCP, INP e CLS.
+  \item[CSS] Linguagem de estilo/presentação da web.
+  \item[DNS] Sistema que traduz nomes de domínio em endereços IP.
+  \item[Docker] Plataforma de contêineres — o padrão de empacotamento da indústria.
+  \item[DOM] Representação em árvore da página HTML, manipulável por JavaScript.
+  \item[E2E (End-to-End)] Testes que percorrem o fluxo completo no navegador real.
+  \item[Event loop] Mecanismo do JavaScript/Node que processa tarefas e callbacks sem bloquear.
+  \item[Fila] Estrutura FIFO de tarefas em background (ex.: BullMQ/Redis).
+  \item[Frontend] Camada que roda no navegador: interface e interação do usuário.
+  \item[Full stack] Capacidade de construir um produto de ponta a ponta: frontend, backend, dados e infra.
+  \item[Generic] Recurso do TypeScript para código reutilizável entre tipos (\texttt{<T>}).
+  \item[HTTP] Protocolo de comunicação da web: requisições e respostas com métodos e status.
+  \item[HTTPS] HTTP sobre TLS — tráfego criptografado.
+  \item[IA/LLM] Inteligência Artificial; Large Language Model — modelo que gera texto.
+  \item[Idempotência] Propriedade de operações que podem ser repetidas sem efeito duplicado.
+  \item[Índice] Estrutura do banco que acelera buscas (ao custo de escrita).
+  \item[ISR] Renderização estática incremental: páginas estáticas que se regeneram sob demanda.
+  \item[JSON] Formato de dados texto-baseado, padrão de troca entre APIs.
+  \item[JWT] Token assinado que carrega claims (identidade, expiração).
+  \item[LCP/INP/CLS] Largest Contentful Paint (carga), Interaction to Next Paint (interatividade), Cumulative Layout Shift (estabilidade).
+  \item[Middleware] Função que intercepta requisições (auth, logs, rate limit).
+  \item[Migração] Mudança de schema versionada e aplicável em qualquer ambiente.
+  \item[ORM] Camada que mapeia tabelas em objetos tipados (Prisma, Drizzle).
+  \item[OSS/Open source] Software de código aberto.
+  \item[OWASP] Fundação que publica o Top 10 de riscos de aplicações web.
+  \item[Paginação] Divisão de resultados em páginas (limite/offset ou cursor).
+  \item[Pipeline] Sequência automatizada de passos (qualidade $\rightarrow$ build $\rightarrow$ deploy).
+  \item[Promise] Objeto que representa uma operação assíncrona em andamento.
+  \item[Prop] Dado passado de um componente React pai para um filho.
+  \item[RAG] Geração aumentada por recuperação: busca dados relevantes e os injeta no contexto do LLM.
+  \item[RBAC] Controle de acesso por papéis (admin, editor, leitor).
+  \item[Redis] Banco em memória: cache, sessões, filas, rate limit.
+  \item[REST] Estilo arquitetural de APIs baseado em recursos e verbos HTTP.
+  \item[Server Component] Componente React que roda no servidor (padrão no Next.js App Router).
+  \item[Server Action] Função executada no servidor, chamada por formulários (Next.js).
+  \item[SPA] Single-Page Application: app que atualiza a página sem recarregar.
+  \item[SQL] Linguagem de consulta a bancos relacionais.
+  \item[SSR/SSG] Renderização no servidor por requisição / geração estática no build.
+  \item[Strict mode] Configuração TypeScript que liga as checagens mais rígidas (não negociável).
+  \item[Teste unitário] Teste de uma unidade isolada (função, componente).
+  \item[TypeScript] Superconjunto tipado de JavaScript, linguagem nº 1 do GitHub desde 2025.
+  \item[WCAG] Diretrizes de acessibilidade web (W3C).
+  \item[XSS/CSRF/SQLi/SSRF] Famílias de ataque: script entre sites, falsificação de requisição, injeção de SQL, requisição forjada no servidor.
+  \item[Zod] Biblioteca de validação de schema em runtime (complementa os tipos).
+\end{description}

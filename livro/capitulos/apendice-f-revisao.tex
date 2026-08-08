@@ -1,0 +1,56 @@
+% ============================================================================
+% APÊNDICE F — Guia de revisão e contribuição
+% ============================================================================
+\chapter{Revisão por Pares e Contribuição}
+\label{apendice:revisao}
+
+\begin{caixaconceito}
+Este livro é revisado por um \textbf{sistema de revisão por pares simulado}:
+agentes independentes atuam como revisores técnico, pedagógico e de fontes,
+aplicando checklists objetivos e validando o resultado (compilação LaTeX,
+execução dos códigos, cruzamento das referências). O processo completo está
+documentado em \texttt{revisao/README.md}.
+\end{caixaconceito}
+
+\section{As três revisões}
+
+\begin{enumerate}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Revisão técnica}: os exemplos funcionam? A versão citada está
+  correta? As APIs usadas existem na versão documentada? O código executa e os
+  testes passam?
+  \item \textbf{Revisão pedagógica}: a ordem é linear e progressiva? Os
+  pré-requisitos estão respeitados? Exercícios têm dificuldade crescente?
+  Analogias e exemplos são claros?
+  \item \textbf{Revisão de fontes}: cada dado de mercado tem fonte oficial?
+  Cada afirmação técnica remete à documentação? As datas de consulta estão
+  registradas?
+\end{enumerate}
+
+\section{O que a revisão valida (checklist resumido)}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Compilação LaTeX sem erros e sem \emph{overfull hbox} significativo;
+  \item \texttt{tsc --noEmit} e testes (Vitest/Playwright) verdes no repositório;
+  \item Todas as referências cruzadas (\texttt{\textbackslash ref}) resolvem;
+  \item Nenhuma caixa didática quebrada ou lista estourada;
+  \item Nenhuma afirmação sem fonte nas seções de mercado;
+  \item Exercícios com solução disponível e testada;
+  \item Termos técnicos em inglês com explicação em pt-BR consistente.
+\end{itemize}
+
+\section{Como contribuir}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Erros de código}: abra uma issue com o capítulo, a listagem e
+  o erro reproduzido;
+  \item \textbf{Atualizações de versão}: PR alterando o exemplo + atualizando
+  a tabela de versões (apêndice~\ref{apendice:manutencao});
+  \item \textbf{Melhorias didáticas}: sugira analogias, exercícios e projetos;
+  \item \textbf{Tradução/adaptação}: o livro é CC BY 4.0 — adapte citando a fonte.
+\end{itemize}
+
+\begin{caixadica}
+O repositório \texttt{revisao/} contém os checklists completos, os scripts de
+validação (\texttt{scripts/}) e um modelo de relatório de revisão
+(\texttt{revisao/relatorio-modelo.md}) para registrar cada rodada.
+\end{caixadica}

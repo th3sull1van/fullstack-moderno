@@ -1,0 +1,279 @@
+% ============================================================================
+% CAPÍTULO 22 — Observabilidade\index{observabilidade}: logs\index{logs}, métricas\index{métricas} e tracing\index{tracing}
+% Status: texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{Observabilidade: Logs, Métricas e Tracing}
+\label{cap:observabilidade}
+
+\begin{caixaconceito}
+\textbf{Observabilidade} é a capacidade de entender o estado interno do
+sistema a partir de suas saídas: \textbf{logs} (eventos), \textbf{métricas}
+(números) e \textbf{traces} (fluxo entre serviços). Sem ela, todo incidente é
+um mistério — e o OWASP \texttt{A09} (logging e monitoramento) vira
+vulnerabilidade.
+\end{caixaconceito}
+
+Você publicou o SkillHub. Um usuário reporta: ``o pagamento não chegou''.
+Sem observabilidade, sua investigação começa do zero: adivinhar, reproduzir,
+acrescentar \texttt{console.log} e deplorar de novo. Com observabilidade, a
+pergunta vira ``me mostre o que aconteceu com esse pedido'' — e os logs, as
+métricas e o trace respondem em segundos. Este capítulo constrói essa
+capacidade, que é também o item A09 do OWASP que você endureceu no
+capítulo~\ref{cap:seguranca}.
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Estruturar logs com níveis, contexto estruturado (JSON) e correlação;
+  \item Instrumentar métricas (latência, erros, taxa) e expô-las;
+  \item Implementar tracing distribuído (OpenTelemetry\index{OpenTelemetry});
+  \item Montar alertas\index{alertas} úteis (e evitar alertas inúteis);
+  \item Entregar o projeto do capítulo: o monitoramento do SkillHub.
+\end{objetivos}
+
+\section{Os três pilares}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Logs}: ``aconteceu X às 14:03'' — eventos discretos, texto estruturado (JSON);
+  \item \textbf{Métricas}: ``a latência p95 subiu 40\%'' — números agregados no tempo;
+  \item \textbf{Traces}: ``a requisição passou por API $\rightarrow$ banco $\rightarrow$ fila em 850ms'' — o caminho completo, com spans.
+\end{itemize}
+
+\begin{caixaconceito}
+Cada pilar responde a uma pergunta diferente. Logs respondem ``\emph{o que}
+aconteceu?'' (o evento exato). Métricas respondem ``\emph{quanto}?'' (a
+tendência no tempo). Traces respondem ``\emph{onde}?'' (em qual componente o
+tempo foi gasto). Nenhum dos três sozinho conta a história completa — o
+incidente clássico ``a API está lenta'' exige os três: a métrica mostra a
+lentidão, o trace aponta o span do banco, e o log explica o porquê (query sem
+índice, lock, conexão esgotada).
+\end{caixaconceito}
+
+\begin{caixaconceito}
+A tríade clássica de monitoramento: \textbf{USE} (Utilização, Saturação, Erros
+— infra), \textbf{RED} (Rate, Errors, Duration — serviços) e os \textbf{quatro
+sinais dourados} do SRE (latência, tráfego, erros, saturação). Escolha um
+framework e seja consistente.
+\end{caixaconceito}
+
+\section{Logs estruturados: o que logar e como}
+
+O log que resolve incidente não é texto solto — é um \emph{evento} com
+atributos. A biblioteca padrão do ecossistema Node/TS é o \texttt{pino}:
+rápida, nativa JSON e com níveis:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Log estruturado com pino (Fastify).}, label={list:obs-logs}]
+import pino from "pino";
+
+const logger = pino({ level: process.env.LOG_LEVEL ?? "info" });
+
+logger.info({ usuarioId: 42, acao: "login", ip: "187.x.x.x" },
+  "login bem-sucedido");
+
+logger.error({ err, pedidoId: "abc" }, "falha ao processar pagamento");
+\end{lstlisting}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Níveis}: \texttt{trace/debug/info/warn/error/fatal} — configure o nível por ambiente;
+  \item \textbf{Contexto}: sempre inclua IDs (usuário, pedido, requestId) para correlacionar;
+  \item \textbf{JSON}: logs estruturados são filtráveis no agregador;
+  \item \textbf{Segurança}: nunca logue senhas, tokens ou dados PII (LGPD);
+  \item \textbf{Eventos de segurança} (A09): login, falha de auth, permissão negada, mudanças sensíveis.
+\end{itemize}
+
+\begin{caixaconceito}
+A diferença entre ``o log que ajuda'' e ``o log que atrapalha'' é o
+\emph{contexto}. ``Falha ao processar pagamento'' é um log; ``falha ao
+processar pagamento, pedido abc, usuário 42, etapa cobrança, erro
+timeout após 5s'' é uma investigação que já começou. O custo de incluir os
+IDs é zero; o custo de não incluí-los é uma noite sem dormir.
+\end{caixaconceito}
+
+\section{Métricas com Prometheus}
+
+Métricas são números agregados ao longo do tempo — e o \textbf{Prometheus} é
+o padrão aberto para coletá-las. Sua aplicação expõe um endpoint
+\texttt{/metrics}; o Prometheus\index{Prometheus} o consulta em intervalos regulares (pull):
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Métricas RED com prom-client.}, label={list:obs-metricas}]
+import client from "prom-client";
+
+const contadorRequisicoes = new client.Counter({
+  name: "http_requests_total",
+  help: "Total de requisições HTTP",
+  labelNames: ["rota", "status"],
+});
+
+const duracao = new client.Histogram({
+  name: "http_request_duration_seconds",
+  help: "Duração das requisições",
+  buckets: [0.1, 0.3, 0.5, 1, 2, 5],
+});
+
+// No middleware da API:
+contadorRequisicoes.inc({ rota, status });
+const fim = duracao.startTimer();
+
+// Endpoint /metrics para o Prometheus coletar
+app.get("/metrics", async (_req, reply) => {
+  reply.type(client.register.contentType);
+  reply.send(await client.register.metrics());
+});
+\end{lstlisting}
+
+\begin{caixadica}
+Os \emph{labels} são o que tornam uma métrica útil: \texttt{http\_requests\_total}
+sem labels é um número sem graça; com \texttt{\{rota, status\}} ele vira ``a
+rota de login está devolvendo 500''. Cuidado apenas com cardinalidade:
+labels de alta variação (ex.: \texttt{userId}) explodem o armazenamento.
+\end{caixadica}
+
+\section{Tracing distribuído com OpenTelemetry}
+
+O \textbf{OpenTelemetry} é o padrão aberto: instrumenta seu código uma vez e
+exporta para qualquer backend (Jaeger, Tempo, Datadog, AWS X-Ray). Uma
+requisição vira um \emph{trace} com \emph{spans} (``POST /pedidos'',
+``query banco'', ``enfileirar e-mail''), cada span com duração e atributos.
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Span manual com OpenTelemetry.}, label={list:obs-trace}]
+import { trace } from "@opentelemetry/api";
+
+const tracer = trace.getTracer("skillhub");
+
+async function criarPedido() {
+  const span = tracer.startSpan("criar_pedido");
+  try {
+    await prisma.pedido.create({ /* ... */ });
+    span.setAttribute("pedido.id", "abc");
+  } finally {
+    span.end();
+  }
+}
+\end{lstlisting}
+
+\begin{caixaconceito}
+O valor do trace está na \textbf{propagação de contexto}: o \texttt{traceId}
+viaja de requisição em requisição (via header HTTP ou contexto de fila), então
+um trace de ponta a ponta conecta o clique do usuário ao worker que enviou o
+e-mail. É a peça que logs e métricas não entregam: a \emph{visão do caminho}.
+\end{caixaconceito}
+
+\section{Alertas: poucos, acionáveis e testados}
+
+Um alerta é um compromisso: alguém vai acordar quando ele disparar. Portanto,
+cada alerta deve merecer o despertador:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Alerta bom}: ``taxa de erro da API > 5\% há 10 min'' — sintoma, não causa;
+  \item \textbf{Alerta ruim}: ``CPU 80\%'' sem contexto (vira ruído que se ignora);
+  \item \textbf{Playbook}: todo alerta deve ter documentado o que fazer (runbook);
+  \item \textbf{Teste de alerta}: derrube o serviço de propósito e confirme a notificação;
+  \item \textbf{SLI/SLO}: defina meta (99,9\% de disponibilidade, p95 $<$ 300ms) e alerte próximo de violá-la.
+\end{itemize}
+
+\begin{caixaconceito}
+A regra de ouro: \textbf{alerte sobre sintomas, não sobre causas}. ``CPU 80\%''
+não diz se algo está errado (pode ser saudável) — ``p95 acima de 2s há 10
+minutos'' diz. O sintoma acorda você quando o usuário sofre; a causa você
+investiga depois, com o alerta de sintoma + os traces como pista.
+\end{caixaconceito}
+
+% ============================================================================
+\section{Projeto do capítulo: monitoramento do SkillHub}
+\label{sec:projeto22}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} tornar o SkillHub observável: logs estruturados, métricas
+RED, tracing e um painel com alertas.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Logs JSON com contexto e \texttt{requestId} em todas as rotas e ações;
+  \item Métricas RED (\texttt{http\_requests\_total}, duração, taxa de erro) no \texttt{/metrics};
+  \item Stack local via Docker: Prometheus + Grafana\index{Grafana} (painel com 4 gráficos);
+  \item Tracing com OpenTelemetry + Jaeger (trace completo de criar pedido);
+  \item Logs de segurança (login, 403, falha) com contexto — atendendo A09 do OWASP;
+  \item 3 alertas testados (erro alto, latência alta, fila parada) com playbooks;
+  \item Nenhum dado PII ou segredo nos logs.
+\end{itemize}
+\end{caixaprojeto}
+
+\subsection{Passo a passo}
+
+\begin{passos}
+  \item \textbf{Logs}: troque os \texttt{console.log} pelo \texttt{pino},
+  adicione o \texttt{requestId} no middleware e o contexto (usuário, pedido)
+  nos pontos críticos;
+  \item \textbf{Métricas}: instrumente \texttt{http\_requests\_total} e a
+  duração com labels \texttt{rota}/\texttt{status}; exponha \texttt{/metrics};
+  \item \textbf{Stack}: adicione Prometheus e Grafana ao Compose
+  (capítulo~\ref{cap:docker}) e configure o scrape do \texttt{/metrics};
+  \item \textbf{Tracing}: configure o OpenTelemetry SDK no app e no worker,
+  exporte para o Jaeger e valide o trace de ``criar pedido'' de ponta a ponta;
+  \item \textbf{Logs de segurança}: registre login, falha de auth e 403 com
+  contexto (A09), sem PII;
+  \item \textbf{Alertas}: crie 3 alertas (erro alto, latência alta, fila
+  parada) com regras no Prometheus, painel no Grafana e playbook documentado;
+  \item \textbf{Teste}: derrube o banco de propósito, confirme os alertas
+  disparando e escreva o resultado no relatório do capítulo.
+\end{passos}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Diferencie logs, métricas e traces com um exemplo de cada.
+  \item Por que logs em JSON e com contexto (IDs) são melhores que texto livre?
+  \item Liste as 4 métricas RED e o que cada uma detecta.
+  \item O que é um span e o que ele adiciona além de um log?
+  \item Escreva um alerta ``bom'' para erro de pagamento e explique por que ele é acionável.
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Correlação}: propague um \texttt{requestId} do middleware até os logs do banco e da fila, e trace uma requisição completa.
+  \item \textbf{Painel de negócio}: crie um painel Grafana com métricas de negócio (pedidos por hora, receita, conversão).
+  \item \textbf{Error tracking}: integre o Sentry para capturar erros não tratados com stack traces e contexto de usuário.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{SLO real}: defina SLOs (disponibilidade e latência) para o SkillHub, instrumente o burn rate e alerte antes de violar o orçamento de erro.
+  \item \textbf{Análise de incidente}: simule um incidente (banco lento), colete logs/traces/métricas e escreva um postmortem completo (cronologia, causa raiz, ações).
+  \item \textbf{Custo de observabilidade}: meça o overhead (CPU/memória) da instrumentação e otimize a amostragem de traces.
+  \item \textbf{Logs para ML}: proponha como os logs estruturados podem alimentar detecção de anomalias (anomaly detection) no tráfego.
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Logar PII/senhas (viola LGPD e vira risco de vazamento);
+  \item Alertas demais = alertas ignorados;
+  \item Métricas sem labels de rota/status (impossível diferenciar erro de 404 vs 500);
+  \item Instrumentar só o ``feliz'' e não os caminhos de erro;
+  \item Monitorar tudo, mas não ter runbook de nada;
+  \item \texttt{console.log} solto sem nível, sem contexto e sem JSON (inútil em produção).
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Observabilidade = logs + métricas + traces, com contexto e correlação;
+  \item Logs JSON, métricas RED (Prometheus), tracing (OpenTelemetry);
+  \item Alertas poucos, acionáveis e testados, com SLO definido;
+  \item Logs de segurança são requisito (A09 do OWASP);
+  \item Projeto entregue: SkillHub observável com painel e alertas.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item OpenTelemetry: \url{https://opentelemetry.io/docs/}
+  \item Prometheus: \url{https://prometheus.io/docs/}
+  \item Grafana: \url{https://grafana.com/docs/}
+  \item Site Reliability Engineering (Google): \url{https://sre.google/sre-book/}
+  \item Sentry (error tracking): \url{https://docs.sentry.io}
+\end{itemize}

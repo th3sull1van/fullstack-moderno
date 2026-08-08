@@ -1,0 +1,280 @@
+% ============================================================================
+% CAPÍTULO 9 — Estilização moderna e design systems
+% Texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{Estilização Moderna e Design Systems}
+\label{cap:estilizacao}
+
+\begin{caixaconceito}
+\textbf{Tailwind CSS v4} \cite{tailwindv4} é o framework de estilos
+\emph{utility-first} mais usado do mercado: em vez de escrever classes
+semânticas e CSS separado, você compõe a interface com utilitários atômicos
+(\texttt{flex}, \texttt{p-4}, \texttt{text-center}) — e o v4 faz isso com
+configuração CSS-first, sem arquivo de configuração JavaScript.
+\end{caixaconceito}
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Comparar as abordagens de estilização (CSS Modules, CSS-in-JS, utility-first\index{utility-first});
+  \item Configurar o Tailwind v4 em um projeto (Vite e Next.js);
+  \item Aplicar utilitários, responsividade, dark mode\index{dark mode} e variantes;
+  \item Criar um design system\index{design system} com tokens e componentes reutilizáveis;
+  \item Integrar componentes de UI (shadcn/ui\index{shadcn/ui}) sem perder o controle;
+  \item Entregar o projeto do capítulo: o design system \emph{OrçaUI}.
+\end{objetivos}
+
+\section{As abordagens de estilização no mercado}
+
+Em 2026, convivem quatro abordagens — e é importante saber \emph{onde} cada
+uma se encaixa:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{CSS puro/Módulos}: você já domina a base (capítulo~\ref{cap:css});
+  CSS Modules adiciona escopo por componente (\texttt{Button.module.css});
+  \item \textbf{CSS-in-JS} (styled-components, Emotion): estilos como
+  JavaScript, com temas dinâmicos — caiu em uso por custo de runtime e
+  problemas com Server Components;
+  \item \textbf{Utility-first} (Tailwind): classes atômicas no HTML;
+  \emph{padrão dominante} em 2026;
+  \item \textbf{Design systems prontos} (shadcn/ui, Radix, MUI): componentes
+  acessíveis e customizáveis por cima do Tailwind.
+\end{itemize}
+
+\begin{caixaconceito}
+O debate ``Tailwind vs CSS puro'' é falso: você \emph{precisa} entender CSS
+(capítulo~\ref{cap:css}) para usar Tailwind bem. Tailwind é uma camada de
+produtividade sobre o mesmo modelo de cascata, especificidade e box model —
+as mesmas regras que você aprendeu, com nomes curtos.
+\end{caixaconceito}
+
+\section{Tailwind v4: configuração CSS-first}
+
+No v4, o design system vive em CSS com a diretiva \texttt{@theme} — sem
+\texttt{tailwind.config.js}:
+
+\begin{lstlisting}[style=livro, language=CSS,
+  caption={Tokens do design system no Tailwind v4.}, label={list:tailwind-tema}]
+@import "tailwindcss";
+
+@theme {
+  --color-primaria: #1f4e79;
+  --color-secundaria: #2e86ab;
+  --color-acento: #f4a261;
+  --color-fundo: #f7f9fb;
+  --color-texto: #22313f;
+
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-corpo: "Inter", system-ui, sans-serif;
+
+  --radius-card: 12px;
+  --shadow-suave: 0 4px 12px rgb(31 78 121 / 0.12);
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=livro, language=Bash,
+  caption={Instalando o Tailwind v4 no Vite.}, label={list:tailwind-instalar}]
+npm install tailwindcss @tailwindcss/vite
+# vite.config.ts: adicione tailwindcss() aos plugins
+# e no CSS principal: @import "tailwindcss";
+\end{lstlisting}
+
+\begin{caixaconceito}
+Os tokens definidos em \texttt{@theme} viram \emph{utilitários}:
+\texttt{bg-(--color-primaria)} (v4) ou \texttt{bg-[var(--color-primaria)]}
+(v3). No v4, você também pode gerar utilitários nomeados automaticamente —
+por exemplo, \texttt{--color-primaria} cria \texttt{text-primaria},
+\texttt{bg-primaria}, \texttt{border-primaria}.
+\end{caixaconceito}
+
+\section{Utilitários, responsividade e dark mode}
+
+\begin{lstlisting}[style=livro, language=HTML,
+  caption={Composição com utilitários Tailwind.}, label={list:tailwind-uso}]
+<button
+  class="rounded-lg bg-primaria px-6 py-3 font-bold text-white
+         transition hover:bg-secundaria
+         focus-visible:outline focus-visible:outline-2
+         md:px-8 dark:bg-gray-800"
+>
+  Começar agora
+</button>
+\end{lstlisting}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Responsividade}: prefixos \texttt{sm:}, \texttt{md:},
+  \texttt{lg:}, \texttt{xl:} aplicam o utilitário a partir da largura
+  (mobile-first, como no capítulo~\ref{cap:css});
+  \item \textbf{Dark mode}: \texttt{dark:} ativa quando a classe \texttt{dark}
+  está no \texttt{<html>} (ou com \texttt{prefers-color-scheme});
+  \item \textbf{Variantes de estado}: \texttt{hover:}, \texttt{focus-visible:},
+  \texttt{active:}, \texttt{disabled:}, \texttt{group-hover:}, \texttt{first:}, \texttt{even:};
+  \item \textbf{Valores arbitrários} (exceção, não regra):
+  \texttt{bg-[\#123456]}, \texttt{w-[17px]}.
+\end{itemize}
+
+\begin{caixadica}
+Regra de ouro de utilitários: \textbf{padrão primeiro}. Use as escalas padrão
+(\texttt{p-4}, \texttt{text-lg}) sempre que possível; valores arbitrários são
+exceção. Isso mantém o design consistente e o bundle pequeno — e facilita
+mudanças globais: altere o token, e todos os componentes seguem.
+\end{caixadica}
+
+\section{Extraindo componentes: do utilitário ao design system}
+
+Utilitários no HTML ficam repetitivos quando o mesmo botão aparece 20 vezes.
+A solução é \emph{extrair} para componentes — e é aí que o React brilha:
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Componente Button com variantes.}, label={list:tailwind-componente}]
+import { type ButtonHTMLAttributes } from "react";
+
+type Variante = "primario" | "secundario" | "perigo";
+
+const estilos: Record<Variante, string> = {
+  primario: "bg-primaria text-white hover:bg-secundaria",
+  secundario: "border-2 border-primaria text-primaria hover:bg-primaria hover:text-white",
+  perigo: "bg-red-600 text-white hover:bg-red-700",
+};
+
+interface BotaoProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variante?: Variante;
+}
+
+export function Botao({ variante = "primario", className = "", ...props }: BotaoProps) {
+  return (
+    <button
+      className={`rounded-lg px-6 py-3 font-bold transition
+        focus-visible:outline focus-visible:outline-2 ${estilos[variante]} ${className}`}
+      {...props}
+    />
+  );
+}
+\end{lstlisting}
+
+\begin{caixaconceito}
+O padrão \emph{componente + variantes} é o coração dos design systems:
+\emph{um} componente \texttt{Botao} com 3 variantes substitui 20 marcações
+repetidas. Se amanhã o ``raio'' muda, você altera um lugar. É a ponte entre
+``utility-first no HTML'' e ``design system no produto''.
+\end{caixaconceito}
+
+\section{Design systems: tokens, componentes e documentação}
+
+Um design system é a ``língua visual'' do produto, com três camadas:
+
+\begin{enumerate}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Tokens}: cores, espaçamentos, raios, tipografia, sombras
+  (definidos em \texttt{@theme});
+  \item \textbf{Componentes base}: \texttt{Button}, \texttt{Input},
+  \texttt{Card}, \texttt{Badge} com variantes e estados;
+  \item \textbf{Padrões de página}: como os componentes se combinam
+  (formulários, tabelas, navegação) — com exemplos vivos.
+\end{enumerate}
+
+\begin{caixaconceito}
+\textbf{shadcn/ui} é a abordagem dominante em 2026: em vez de uma biblioteca
+fechada, você \emph{copia} componentes acessíveis (construídos sobre Radix
+UI) para o seu projeto e os customiza livremente. O código é seu — o que casa
+perfeitamente com o modelo deste livro e evita a ``dívida'' de bibliotecas
+imutáveis.
+\end{caixaconceito}
+
+\section{Acessibilidade visual: contraste e foco}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Contraste}: texto sobre fundo $\geq$ 4,5:1 (WCAG\index{WCAG} AA) — valide
+  com a ferramenta do Lighthouse (capítulo~\ref{cap:performance});
+  \item \textbf{Foco visível}: sempre \texttt{focus-visible:outline-2} nos
+  interativos — nunca remova o outline sem substituto;
+  \item \textbf{Reduced motion}: respeite \texttt{prefers-reduced-motion} nas
+  animações;
+  \item \textbf{Tamanho de toque}: alvos de interação $\geq$ 44px em mobile.
+\end{itemize}
+
+% ============================================================================
+\section{Projeto do capítulo: o design system OrçaUI}
+\label{sec:projeto9}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} criar o design system \emph{OrçaUI} para o produto fictício
+OrçaFácil (capítulo~\ref{cap:css}): tokens, componentes base e uma página de
+documentação (``storybook caseiro'').
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Tokens completos em \texttt{@theme} (cores, tipografia, espaçamentos, raios, sombras);
+  \item Componentes \texttt{Button} (4 variantes), \texttt{Input}, \texttt{Card}, \texttt{Badge}, \texttt{Modal} — com TypeScript;
+  \item Estados: hover, foco visível, desabilitado e carregando;
+  \item Dark mode funcional em todos os componentes;
+  \item Página \texttt{/design-system} documentando cada componente com exemplos vivos;
+  \item Testes visuais básicos (screenshot) — configurados com Playwright no capítulo~\ref{cap:testes}.
+\end{itemize}
+\end{caixaprojeto}
+
+\begin{caixadica}
+Um \emph{storybook caseiro} é uma página que mostra cada componente em todos
+os seus estados (padrão, hover, erro, carregando, dark). É a forma mais
+rápida de ``ver'' o design system crescer — e o mesmo conceito das
+ferramentas profissionais (Storybook, Chromatic).
+\end{caixadica}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Compare CSS Modules, CSS-in-JS e utility-first: uma vantagem e uma desvantagem de cada.
+  \item Escreva a diretiva \texttt{@theme} com 3 tokens de cor e 2 de raio.
+  \item Crie um botão responsivo com Tailwind: centralizado, com padding em \texttt{md:} maior e cor de fundo no hover.
+  \item O que são variantes \texttt{group-hover} e \texttt{focus-visible}? Dê um uso real.
+  \item Liste as três camadas de um design system e dê um exemplo de cada.
+  \item Por que extrair componentes com variantes em vez de repetir utilitários?
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Dark mode completo}: implemente o modo escuro com botão de alternância e persistência em \texttt{localStorage} em um app com 3 páginas.
+  \item \textbf{Componente Modal acessível}: construa um \texttt{Modal} com foco preso (focus trap), fechamento por \texttt{Escape} e \texttt{role="dialog"} + \texttt{aria-modal}.
+  \item \textbf{Tokens responsivos}: use \texttt{clamp()} nos tokens de tipografia para que títulos escalem suavemente entre 320px e 1440px.
+  \item \textbf{Badge e variantes}: implemente o \texttt{Badge} com 4 tons (info, sucesso, alerta, perigo) e teste o contraste de cada um.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Anatomia do bundle}: analise com \texttt{npx next build} (ou Vite) quanto CSS cada página carrega e otimize removendo utilitários redundantes.
+  \item \textbf{Contraste e tokens}: audite os tokens de cor do OrçaUI contra WCAG AA e ajuste a paleta (documente a decisão de cada cor).
+  \item \textbf{Componente composto}: implemente um \texttt{Tabs} com compound components (\texttt{Tabs.List}, \texttt{Tabs.Panel}) seguindo o padrão do Radix UI, com navegação por teclado (setas).
+  \item \textbf{Tema no Next.js}: implemente tokens dinâmicos no App Router com variáveis CSS por tema e \texttt{class} no \texttt{<html>}, sem flash de tema incorreto (FOUC).
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item Usar valores arbitrários em excesso (design vira ``sopa de pixels'');
+  \item Aplicar Tailwind sem entender CSS (resultado: layouts quebrados);
+  \item Dark mode ``na gambiarra'' com cores fixas fora de tokens;
+  \item Copiar bibliotecas de UI inteiras sem questionar acessibilidade e tamanho;
+  \item Esquecer \texttt{focus-visible} — o teclado fica invisível.
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Utility-first (Tailwind v4) é o padrão de estilização de 2026;
+  \item \texttt{@theme} centraliza os tokens sem arquivo JS de configuração;
+  \item Responsividade (\texttt{md:}), dark mode (\texttt{dark:}) e variantes são prefixos;
+  \item Componentes com variantes substituem marcações repetidas;
+  \item Design systems = tokens + componentes base + padrões de página;
+  \item shadcn/ui entrega acessibilidade com código que é seu;
+  \item Projeto entregue: design system OrçaUI documentado.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Documentação oficial do Tailwind: \url{https://tailwindcss.com/docs}
+  \item Anúncio do Tailwind v4: \url{https://tailwindcss.com/blog/tailwindcss-v4}
+  \item shadcn/ui: \url{https://ui.shadcn.com}
+  \item Radix UI (primitivos acessíveis): \url{https://www.radix-ui.com}
+  \item WCAG 2.2 (W3C): \url{https://www.w3.org/WAI/WCAG22/Overview}
+\end{itemize}

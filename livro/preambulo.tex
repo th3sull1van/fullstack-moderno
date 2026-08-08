@@ -1,0 +1,310 @@
+% ============================================================================
+% PREÂMBULO — "Full Stack Moderno: do zero ao sênior"
+% Compilação: XeLaTeX + biber (ver scripts/build-pdf.sh e scripts/build-epub.sh)
+% Requisitos: TeX Live 2023+ (ou TinyTeX) com os pacotes listados no README.
+% ============================================================================
+
+% ---------- Página e geometria (digital: A4, margens confortáveis) ----------
+\usepackage[a4paper, top=2.4cm, bottom=2.6cm, inner=2.6cm, outer=2.2cm,
+            headheight=16pt, footskip=1.2cm, marginparwidth=0cm]{geometry}
+
+% ---------- Fontes (XeLaTeX, Unicode seguro) ----------
+\usepackage{fontspec}
+% Fontes carregadas por NOME DE ARQUIVO via kpathsea (independente do
+% fontconfig do sistema operacional): TeX Gyre com fallback para Latin Modern.
+\IfFileExists{texgyrepagella-regular.otf}{%
+  \setmainfont{TeX Gyre Pagella}[
+    UprightFont = texgyrepagella-regular.otf,
+    BoldFont = texgyrepagella-bold.otf,
+    ItalicFont = texgyrepagella-italic.otf,
+    BoldItalicFont = texgyrepagella-bolditalic.otf,
+  ]%
+}{%
+  \setmainfont{Latin Modern Roman}[
+    UprightFont = lmroman10-regular.otf,
+    BoldFont = lmroman10-bold.otf,
+    ItalicFont = lmroman10-italic.otf,
+    BoldItalicFont = lmroman10-bolditalic.otf,
+  ]%
+}
+\IfFileExists{texgyreheros-regular.otf}{%
+  \setsansfont{TeX Gyre Heros}[
+    UprightFont = texgyreheros-regular.otf,
+    BoldFont = texgyreheros-bold.otf,
+    ItalicFont = texgyreheros-italic.otf,
+    BoldItalicFont = texgyreheros-bolditalic.otf,
+  ]%
+}{%
+  \setsansfont{Latin Modern Sans}[
+    UprightFont = lmsans10-regular.otf,
+    BoldFont = lmsans10-bold.otf,
+    ItalicFont = lmsans10-oblique.otf,
+    BoldItalicFont = lmsans10-boldoblique.otf,
+  ]%
+}
+% Fonte monoespaçada: Inconsolata se disponível; senão Latin Modern Mono.
+\IfFileExists{Inconsolata-Regular.otf}{%
+  \setmonofont{Inconsolata}[
+    Scale = 0.9,
+    UprightFont = Inconsolata-Regular.otf,
+    BoldFont = Inconsolata-Bold.otf,
+  ]%
+}{%
+  \setmonofont{Latin Modern Mono}[
+    Scale = 0.9,
+    UprightFont = lmmono10-regular.otf,
+    BoldFont = lmmono10-regular.otf,   % LM Mono não tem bold dedicado
+    ItalicFont = lmmono10-italic.otf,
+    BoldItalicFont = lmmono10-italic.otf,
+  ]%
+}
+
+% ---------- Idioma e hifenização (pt-BR) ----------
+\usepackage[brazilian]{babel}
+\shorthandoff{"}   % o babel português ativa `"`; desligamos para permitir aspas retas em \texttt{...}
+
+% ---------- Tipografia fina ----------
+\usepackage{microtype}
+\usepackage{amsmath, amssymb}
+\emergencystretch=3em          % evita overfull hbox em parágrafos densos
+\setlength{\parskip}{0.15em}
+
+% ---------- Cores (paleta editorial) ----------
+\usepackage[dvipsnames, table]{xcolor}
+\definecolor{primaria}{HTML}{1F4E79}   % azul-escuro institucional
+\definecolor{secundaria}{HTML}{2E86AB} % azul-médio
+\definecolor{acento}{HTML}{C0392B}     % vermelho de alerta
+\definecolor{verde}{HTML}{1E8449}
+\definecolor{verdeclaro}{HTML}{E8F8F0}
+\definecolor{laranja}{HTML}{B9770E}
+\definecolor{laranjacla}{HTML}{FCF3E7}
+\definecolor{azulclaro}{HTML}{EAF2F8}
+\definecolor{cinzaclaro}{HTML}{F2F3F4}
+\definecolor{codigo-fundo}{HTML}{FAFAFA}
+\definecolor{codigo-borda}{HTML}{CCCCCC}
+\definecolor{comentario}{HTML}{5F7A61}
+\definecolor{stringcor}{HTML}{9A4D1E}
+\definecolor{keywordcor}{HTML}{1F4E79}
+
+% ---------- Listagens de código (à prova de estouro de borda) ----------
+\usepackage{listings}
+
+% Linguagens definidas localmente (garantia de funcionamento em qualquer TeX Live)
+\lstdefinelanguage{JavaScript}{
+  morekeywords={const,let,var,function,return,if,else,for,while,do,switch,case,
+    break,continue,new,class,extends,super,this,typeof,instanceof,delete,void,
+    await,async,try,catch,finally,throw,import,export,from,default,yield,of,in,
+    static,get,set,true,false,null,undefined,NaN,Infinity},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]',
+  morestring=[b]"
+}
+\lstdefinelanguage{TypeScript}{
+  language=JavaScript,
+  morekeywords={interface,type,enum,namespace,declare,readonly,implements,
+    public,private,protected,abstract,keyof,infer,as,is,unknown,never,any,
+    string,number,boolean,symbol,bigint,object,Record,Partial,Required,Readonly,
+    Pick,Omit,Exclude,Extract,ReturnType,Parameters,Promise,Array}
+}
+\lstdefinelanguage{Bash}{
+  morekeywords={echo,cd,ls,mkdir,rm,mv,cp,cat,curl,npm,npx,node,git,docker,
+    docker-compose,export,source,if,then,else,fi,for,in,do,done,function,local,
+    case,esac,while,test,pwd,touch,grep,sudo,chmod,chown,ps,kill},
+  sensitive=false,
+  morecomment=[l]{\#},
+  morestring=[b]'
+}
+\lstdefinelanguage{SQL}{
+  morekeywords={SELECT,FROM,WHERE,INSERT,INTO,VALUES,UPDATE,SET,DELETE,CREATE,
+    TABLE,ALTER,DROP,INDEX,PRIMARY,KEY,FOREIGN,REFERENCES,JOIN,INNER,LEFT,RIGHT,
+    FULL,ON,GROUP,BY,ORDER,HAVING,LIMIT,OFFSET,AS,DISTINCT,AND,OR,NOT,NULL,IS,
+    BETWEEN,LIKE,IN,EXISTS,UNION,ALL,CASE,WHEN,THEN,ELSE,END,BEGIN,COMMIT,
+    ROLLBACK,TRANSACTION,VARCHAR,TEXT,INTEGER,BIGINT,SERIAL,UUID,BOOLEAN,TIMESTAMP,
+    DATE,NUMERIC,DECIMAL,CHECK,DEFAULT,UNIQUE},
+  sensitive=true,
+  morecomment=[l]{--}
+}
+\lstdefinelanguage{HTML}{
+  morekeywords={html,head,body,title,meta,link,script,style,div,span,p,a,h1,h2,h3,
+    h4,h5,h6,ul,ol,li,table,thead,tbody,tr,th,td,form,input,label,button,select,
+    option,textarea,img,section,article,header,footer,nav,main,aside,figure,
+    figcaption,video,audio,canvas,iframe,strong,em,code,pre,blockquote,br,hr,
+    small,mark,time,address,details,summary},
+  sensitive=true,
+  morecomment=[s]{<!--}{-->}
+}
+\lstdefinelanguage{CSS}{
+  morekeywords={color,background,background-color,font,font-size,font-family,
+    font-weight,margin,padding,border,border-radius,display,position,top,right,
+    bottom,left,width,height,min-width,max-width,flex,flex-direction,grid,
+    gap,align-items,align-self,justify-content,text-align,text-decoration,
+    line-height,opacity,z-index,overflow,box-sizing,box-shadow,transition,
+    transform,animation,media,import,root,keyframes,content,float,clear,cursor,
+    list-style,outline,visibility,vertical-align,white-space,word-break},
+  sensitive=true,
+  morecomment=[s]{/*}{*/}
+}
+\lstdefinelanguage{JSON}{
+  morekeywords={true,false,null},
+  sensitive=true
+}
+
+\lstdefinestyle{livro}{
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{keywordcor}\bfseries,
+  commentstyle=\color{comentario}\itshape,
+  stringstyle=\color{stringcor},
+  showstringspaces=false,
+  breaklines=true,            % quebra linhas longas (evita estouro)
+  breakatwhitespace=true,
+  postbreak=\mbox{\textcolor{secundaria}{\ensuremath{\hookrightarrow}}\space},
+  columns=fullflexible,       % espaçamento flexível (evita estouro)
+  keepspaces=true,
+  frame=single,
+  rulecolor=\color{codigo-borda},
+  backgroundcolor=\color{codigo-fundo},
+  numbers=left,
+  numberstyle=\tiny\color{gray!70},
+  stepnumber=1,
+  xleftmargin=1.6em,
+  xrightmargin=0.4em,
+  aboveskip=0.9em,
+  belowskip=0.9em,
+  captionpos=b,
+  tabsize=2,
+  showtabs=false,
+  literate= % acentuação pt-BR dentro do código (comentários e strings)
+    {á}{{\'a}}1 {à}{{\`a}}1 {â}{{\^a}}1 {ã}{{\~a}}1 {ä}{{\"a}}1
+    {é}{{\'e}}1 {è}{{\`e}}1 {ê}{{\^e}}1 {ë}{{\"e}}1
+    {í}{{\'i}}1 {ì}{{\`i}}1 {î}{{\^i}}1 {ï}{{\"i}}1
+    {ó}{{\'o}}1 {ò}{{\`o}}1 {ô}{{\^o}}1 {õ}{{\~o}}1 {ö}{{\"o}}1
+    {ú}{{\'u}}1 {ù}{{\`u}}1 {û}{{\^u}}1 {ü}{{\"u}}1
+    {ç}{{\c{c}}}1 {Ç}{{\c{C}}}1
+    {Á}{{\'A}}1 {À}{{\`A}}1 {Â}{{\^A}}1 {Ã}{{\~A}}1 {Ä}{{\"A}}1
+    {É}{{\'E}}1 {È}{{\`E}}1 {Ê}{{\^E}}1 {Ë}{{\"E}}1
+    {Í}{{\'I}}1 {Ì}{{\`I}}1 {Î}{{\^I}}1 {Ï}{{\"I}}1
+    {Ó}{{\'O}}1 {Ò}{{\`O}}1 {Ô}{{\^O}}1 {Õ}{{\~O}}1 {Ö}{{\"O}}1
+    {Ú}{{\'U}}1 {Ù}{{\`U}}1 {Û}{{\^U}}1 {Ü}{{\"U}}1
+    {º}{{\textordmasculine}}1 {ª}{{\textordfeminine}}1
+    {—}{{---}}1 {–}{{--}}1 {…}{{\ldots}}1
+}
+
+% ---------- Caixas didáticas (quebráveis, sem estouro) ----------
+\usepackage[most]{tcolorbox}
+\newtcolorbox{caixadica}{breakable, enhanced, arc=1.5mm, boxrule=0.6pt,
+  colback=verdeclaro, colframe=verde, coltitle=white,
+  title={\small\bfseries Dica}, fonttitle=\bfseries,
+  left=2.5mm, right=2.5mm, top=1.6mm, bottom=1.6mm}
+\newtcolorbox{caixaarmadilha}{breakable, enhanced, arc=1.5mm, boxrule=0.6pt,
+  colback=laranjacla, colframe=laranja, coltitle=white,
+  title={\small\bfseries Armadilha comum}, fonttitle=\bfseries,
+  left=2.5mm, right=2.5mm, top=1.6mm, bottom=1.6mm}
+\newtcolorbox{caixaprojeto}{breakable, enhanced, arc=1.5mm, boxrule=0.8pt,
+  colback=azulclaro, colframe=primaria, coltitle=white,
+  title={\small\bfseries Projeto do capítulo}, fonttitle=\bfseries,
+  left=2.5mm, right=2.5mm, top=1.6mm, bottom=1.6mm}
+\newtcolorbox{caixaconceito}{breakable, enhanced, arc=1.5mm, boxrule=0.5pt,
+  colback=cinzaclaro, colframe=gray!60, coltitle=black,
+  title={\small\bfseries Conceito-chave}, fonttitle=\bfseries,
+  left=2.5mm, right=2.5mm, top=1.6mm, bottom=1.6mm}
+
+% ---------- Cabeçalhos e rodapés ----------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{gray!70}\leftmark}
+\fancyhead[R]{\small\color{primaria}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\color{secundaria}\hrule width\headwidth height 0.4pt}
+\fancypagestyle{plain}{%
+  \fancyhf{}
+  \fancyhead[R]{\small\color{primaria}\thepage}
+  \renewcommand{\headrulewidth}{0pt}}
+
+% ---------- Formatação de capítulos e seções ----------
+\usepackage{titlesec}
+\titleformat{\chapter}[display]
+  {\normalfont\sffamily\bfseries\color{primaria}}
+  {\filleft\Large\MakeUppercase{\chaptertitlename} \thechapter}
+  {0.4em}
+  {\Huge}
+  [\vspace{0.4em}{\color{secundaria}\titlerule[1pt]}]
+\titlespacing*{\chapter}{0pt}{-30pt}{26pt}
+\titleformat{\section}{\normalfont\Large\bfseries\color{primaria}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries\color{secundaria}}{\thesubsection}{0.7em}{}
+\titleformat{\subsubsection}{\normalfont\normalsize\bfseries\color{black}}{\thesubsubsection}{0.7em}{}
+
+% ---------- Sumário: folga para números de seção longos (ex.: 12.15) ----------
+% O box padrão de 2.3em deixa apenas ~0.7pt entre o número de 4 dígitos e o
+% título, parecendo colado. 2.6em garante ~4.4pt de respiro para o pior caso.
+\makeatletter
+\renewcommand*\l@section{\@dottedtocline{1}{1.5em}{2.6em}}
+\makeatother
+
+% ---------- Tabelas e legendas ----------
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{caption}
+\captionsetup{font=small, labelfont={bf,color=primaria}, skip=6pt}
+\captionsetup[lstlisting]{font=small, labelfont={bf,color=primaria}}
+
+% ---------- Listas e ambientes didáticos ----------
+\usepackage{enumitem}
+\newlist{objetivos}{itemize}{1}
+\setlist[objetivos]{label=\textcolor{secundaria}{\textbullet},
+  leftmargin=*, itemsep=0.3em, topsep=0.5em}
+\newlist{exercicios}{enumerate}{1}
+\setlist[exercicios]{label=\textbf{Exercício \arabic*.},
+  leftmargin=*, itemsep=0.7em, topsep=0.5em, before={\smallskip}}
+\newlist{desafios}{enumerate}{1}
+\setlist[desafios]{label=\textbf{Desafio \arabic*.},
+  leftmargin=*, itemsep=0.7em, topsep=0.5em, before={\smallskip}}
+\newlist{seniores}{enumerate}{1}
+\setlist[seniores]{label=\textbf{Sênior \arabic*.},
+  leftmargin=*, itemsep=0.7em, topsep=0.5em, before={\smallskip}}
+\newlist{passos}{enumerate}{1}
+\setlist[passos]{label=\textbf{Passo \arabic*.},
+  leftmargin=*, itemsep=0.6em, topsep=0.4em, before={\smallskip}}
+
+% ---------- Índice remissivo (makeindex, estilo em indice.ist) ----------
+\usepackage[original]{imakeidx}
+\makeindex[options={-s indice.ist}, title={Índice Remissivo}, intoc]
+
+% ---------- Hiperlinks e URLs (xurl evita estouro em URLs longas) ----------
+\usepackage[hidelinks, bookmarksnumbered=true,
+  pdftitle={Full Stack Moderno: do zero ao sênior},
+  pdfauthor={Autor do Livro},
+  pdfsubject={Desenvolvimento Web Full Stack},
+  pdfkeywords={full stack, TypeScript, React, Next.js, PostgreSQL, Docker, AWS},
+  pdfcreator={XeLaTeX}]{hyperref}
+\usepackage{xurl}
+
+% ---------- Referências bibliográficas (BibLaTeX + biber) ----------
+\usepackage[style=numeric, backend=biber, sortcites=true]{biblatex}
+\addbibresource{referencias.bib}
+
+% ---------- Campos editáveis do livro (veja README.md) ----------
+\newcommand{\autordolivro}{[Nome do Autor]}
+\newcommand{\versaodolivro}{0.2}
+\newcommand{\datadolivro}{Agosto de 2026}
+
+% ---------- Diversos ----------
+\usepackage{etoolbox}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric}
+% Diagramas vetoriais: TikZ no PDF; nota textual no EPUB (o pipeline tex4ebook
+% não converte TikZ sem dvisvgm). O diagrama em si nunca é processado no EPUB.
+\newcommand{\diagramatikz}[1]{%
+  \ifdefined\HCode
+    \begin{minipage}{0.92\linewidth}\centering
+    \footnotesize\textit{Diagrama vetorial — disponível na versão PDF deste
+    livro.}
+    \end{minipage}%
+  \else
+    #1%
+  \fi
+}
+\newcommand{\codigopath}{../codigo}   % caminho base do repositório de código

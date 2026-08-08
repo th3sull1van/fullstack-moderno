@@ -1,0 +1,160 @@
+% ============================================================================
+% FRONT MATTER — ficha técnica, definições, prefácio e guia de leitura
+% ============================================================================
+
+\chapter*{Ficha técnica}
+\addcontentsline{toc}{chapter}{Ficha técnica}
+
+\begin{tabularx}{\textwidth}{@{}p{4.5cm}X@{}}
+\toprule
+\textbf{Título} & Full Stack Moderno: do zero ao sênior \\
+\textbf{Subtítulo} & Desenvolvimento web full stack com TypeScript, React, Next.js,
+PostgreSQL, Docker e AWS \\
+\textbf{Idioma} & Português brasileiro (termos técnicos em inglês, por convenção) \\
+\textbf{Formato} & Digital (PDF e EPUB) \\
+\textbf{Versão do texto} & \versaodolivro \\
+\textbf{Data de referência} & \datadolivro \\
+\textbf{Licença do texto} & Creative Commons Atribuição 4.0 Internacional (CC BY 4.0) \\
+\textbf{Licença do código} & MIT \\
+\textbf{Tecnologias cobertas} & HTML, CSS, JavaScript, TypeScript, React, Next.js,
+Tailwind CSS, Node.js, PostgreSQL, Prisma, Drizzle, Docker, GitHub Actions, AWS,
+Redis, Vitest, Playwright e IA aplicada \\
+\bottomrule
+\end{tabularx}
+
+\vspace{1.2em}
+\noindent\textbf{Como citar este livro:} \autordolivro. \emph{Full Stack Moderno:
+do zero ao sênior}. Versão \versaodolivro, \datadolivro. Disponível sob licença
+CC BY 4.0.
+
+\clearpage
+
+% ---------------------------------------------------------------------------
+\chapter*{Prefácio}
+\addcontentsline{toc}{chapter}{Prefácio}
+
+Existe uma diferença enorme entre \emph{saber escrever código} e \emph{saber
+construir software}. Este livro foi escrito para atravessar essa diferença.
+
+Ele nasceu de uma decisão editorial baseada em dados: em 2025, a pesquisa de
+desenvolvedores da Stack Overflow confirmou JavaScript como a linguagem mais
+usada do planeta, React como o framework mais usado e PostgreSQL como o banco
+de dados nº 1; no mesmo ano, o relatório Octoverse do GitHub registrou, pela
+primeira vez na história, o TypeScript ultrapassando Python e JavaScript como a
+linguagem mais popular do maior repositório de código do mundo. Somando a isso
+a preferência dos alunos por um caminho único e coeso, escolhemos uma stack
+completa e realista de mercado: \textbf{TypeScript de ponta a ponta} — do
+primeiro arquivo HTML até o deploy em nuvem com Docker e AWS.
+
+O percurso é linear e progressivo. Você começa entendendo como a web funciona e
+escrevendo sua primeira página; termina projetando arquiteturas distribuídas,
+protegendo aplicações contra as ameaças do OWASP Top 10 e construindo sistemas
+com inteligência artificial integrada. Cada capítulo traz um
+projeto prático, criativo e relevante para o mercado, com algoritmos úteis,
+testes automatizados, critérios de avaliação e desafios extras para quem quer
+ir além. Nas Partes I a III, os projetos são independentes (cada capítulo
+delivera algo novo); a partir da Parte IV, eles evoluem um sistema único — o
+SkillHub — para que os temas avançados (performance, arquitetura, nuvem e IA)
+sejam exercitados sobre uma base que você já conhece por dentro.
+
+Este livro é um material \emph{vivo}: as versões das tecnologias, as datas de
+consulta às documentações oficiais e o plano de atualizações ficam registrados
+no arquivo de manutenção do projeto (apêndice~\ref{apendice:manutencao} e
+arquivo \texttt{MANUTENCAO.md}). Se algo mudar no ecossistema, este texto tem um
+caminho claro para ser atualizado — e você está convidado a participar.
+
+Boa jornada. O mercado precisa de profissionais que entendam o sistema inteiro,
+e este livro foi feito para formar exatamente essas pessoas.
+
+\clearpage
+
+% ---------------------------------------------------------------------------
+\chapter*{Como usar este livro}
+\addcontentsline{toc}{chapter}{Como usar este livro}
+
+\section*{A quem se destina}
+Do iniciante absoluto — que nunca escreveu uma linha de código — ao
+desenvolvedor em busca do nível sênior. O capítulo~1 define o ponto de partida
+e o apêndice~A configura o ambiente completo passo a passo.
+
+\section*{Mapa do leitor}
+O percurso é linear, mas nem todo mundo começa do zero. Escolha a sua rota:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Iniciante absoluto} — leia tudo, em ordem. As Partes I e II
+  são o alicerce; não pule o capítulo~1 (ele define o vocabulário) nem os
+  projetos (eles consolidam);
+  \item \textbf{Já programa, quer full stack} — pule para o capítulo~5 (Git)
+  ou 6 (TypeScript) e volte à Parte I só se alguma base falhar; os
+  pré-requisitos de cada parte estão na tabela abaixo;
+  \item \textbf{Sênior em busca de atualização} — comece na Parte V
+  (performance, arquitetura, observabilidade, nuvem e IA) e volte às partes
+  anteriores pontualmente, guiado pelos tópicos do sumário;
+  \item \textbf{Estudando para entrevistas} — use o sumário como checklist:
+  cada seção é um tópico que já foi ``perguntado'' em processo seletivo
+  (narrowing, N+1, JWT vs sessão, idempotência, OWASP, Core Web Vitals).
+\end{itemize}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Parte} & \textbf{Pré-requisitos} & \textbf{Entrega principal} \\
+\midrule
+I. Fundamentos & Nenhum & Portfólio, receita, landing, jogo \\
+II. Frontend TS/React & Parte I & Validador, kanban, blog, design system \\
+III. Backend e Dados & Parte II & Encurtador, CineAPI, e-commerce, biblioteca, AuthHub \\
+IV. Full Stack Integrado & Parte III & SkillHub + testes, Docker, CI, hardening \\
+V. Avançado e Produção & Parte IV & Otimização, filas, observabilidade, AWS, IA \\
+VI. Carreira & Todas & Portfólio e plano de 12 meses \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section*{Estrutura de cada capítulo}
+Todos os capítulos seguem o mesmo padrão editorial:
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item \textbf{Objetivos de aprendizagem} — o que você será capaz de fazer ao final;
+  \item \textbf{Teoria essencial} — conceitos explicados do zero, com analogias e diagramas;
+  \item \textbf{Código comentado} — exemplos executáveis, referenciando o repositório de código;
+  \item \textbf{Projeto do capítulo} — um desafio independente, com critérios de aceite;
+  \item \textbf{Exercícios de fixação} — com gabarito comentado em
+  \texttt{codigo/--solucoes/} (apêndice~\ref{apendice:solucoes});
+  \item \textbf{Desafios e exercícios de nível sênior} — abertos, verificados
+  pelos critérios de aceite e testes de cada projeto;
+  \item \textbf{Armadilhas comuns} — os erros que mais custam tempo em entrevistas e produção;
+  \item \textbf{Resumo e referências oficiais} — para aprofundamento na documentação.
+\end{itemize}
+
+\section*{As caixas}
+Ao longo do texto você encontrará quatro tipos de caixa:
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item \textbf{Dica} (verde) — atalhos, boas práticas e truques de produtividade;
+  \item \textbf{Armadilha comum} (laranja) — erros frequentes e como evitá-los;
+  \item \textbf{Projeto do capítulo} (azul) — o desafio prático que consolida o aprendizado;
+  \item \textbf{Conceito-chave} (cinza) — definições que valem ser memorizadas.
+\end{itemize}
+
+\section*{O repositório de código}
+Todo o código do livro vive em \texttt{codigo/}, organizado por capítulo
+(\texttt{cap01-portfolio}, \texttt{cap02-receita} e assim por diante). Cada
+projeto é independente e contém um \texttt{README.md} com instruções de
+execução. As soluções dos exercícios ficam em \texttt{codigo/--solucoes/} e são
+referenciadas no apêndice~\ref{apendice:solucoes}.
+
+\section*{Como este livro foi produzido}
+O texto foi escrito em \LaTeX{} (XeLaTeX) com fontes e margens calibradas para
+leitura digital, evitando estouro de bordas e quebras visuais. O PDF é gerado
+com \texttt{latexmk}; o EPUB, com \texttt{tex4ebook}. O processo editorial
+inclui uma revisão por pares simulada com agentes independentes (técnica,
+pedagógica e de fontes) — veja o diretório \texttt{revisao/}.
+
+\section*{Convenções de escrita}
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Comandos e nomes de arquivos aparecem em \texttt{fonte monoespaçada};
+  \item Listagens numeradas são referenciadas no texto como ``Listagem~N'', em que N é o número da listagem;
+  \item Termos técnicos aparecem primeiro em inglês (a língua da documentação oficial);
+  \item URLs de documentação oficial aparecem como \texttt{\url{...}} e nas referências finais.
+\end{itemize}
+
+\clearpage

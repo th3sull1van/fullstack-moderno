@@ -1,0 +1,378 @@
+% ============================================================================
+% CAPÍTULO 12 — PostgreSQL\index{PostgreSQL} e SQL\index{SQL}
+% Texto completo (rodada editorial 2)
+% ============================================================================
+\chapter{PostgreSQL e SQL}
+\label{cap:postgresql}
+
+\begin{caixaconceito}
+\textbf{PostgreSQL} é o banco de dados relacional mais usado do mundo
+\cite{so2025} — a versão 18 \cite{pg18,pg-docs} trouxe I/O assíncrono,
+UUIDv7 e melhorias de performance. \textbf{SQL} é a linguagem que conversa com
+ele: a habilidade mais estável e mais valiosa de toda a carreira full stack.
+\end{caixaconceito}
+
+Ao final deste capítulo, você será capaz de:
+\begin{objetivos}
+  \item Modelar dados relacionais: tabelas, chaves, tipos e constraints;
+  \item Escrever consultas SQL (\texttt{SELECT}, \texttt{JOIN}, agregações, subqueries);
+  \item Entender transações, índices e o plano de execução;
+  \item Usar recursos do PostgreSQL\index{PostgreSQL} 18 (UUIDv7, JSONB, full-text search);
+  \item Conectar um app Node ao banco com \texttt{pg};
+  \item Entregar o projeto do capítulo: o modelo de dados de um e-commerce.
+\end{objetivos}
+
+\section{Por que bancos relacionais}
+
+Dados são o ativo mais valioso de um produto — e a forma como você os guarda
+determina o que é possível construir. Bancos relacionais garantem três coisas
+que o mundo real exige:
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{Consistência}: transações ACID\index{ACID} — nada de ``pedido pago sem
+  item'' ou ``saldo negativo por mágica'';
+  \item \textbf{Integridade}: constraints e chaves estrangeiras impedem dados
+  órfãos e contraditórios;
+  \item \textbf{Consultas poderosas}: SQL junta, agrega e analisa milhões de
+  linhas — sem carregar tudo no seu código.
+\end{itemize}
+
+E o PostgreSQL une tudo isso à \emph{extensibilidade}: JSONB (dados
+semi-estruturados), full-text search em português, tipos geométricos, e a
+capacidade de virar um banco vetorial com pgvector (capítulo~\ref{cap:ia}).
+
+\begin{caixaconceito}
+\textbf{ACID}: Atomicidade (ou tudo ou nada), Consistência (estado válido),
+Isolamento (transações concorrentes não se atrapalham) e Durabilidade (dados
+persistem mesmo com queda de energia). É o que torna o banco relacional
+confiável para dinheiro, pedidos e contas — e a razão pela qual ele continua
+sendo a escolha padrão de produtos sérios.
+\end{caixaconceito}
+
+\section{Subindo o PostgreSQL com Docker}
+
+Você tem Docker instalado (apêndice~\ref{apendice:instalacao}). A forma mais
+rápida de ter um banco limpo:
+
+\begin{lstlisting}[style=livro, language=Bash,
+  caption={Subindo o PostgreSQL 18 em contêiner.}, label={list:pg-docker}]
+docker run --name pg-livro \
+  -e POSTGRES_USER=app -e POSTGRES_PASSWORD=senha -e POSTGRES_DB=app \
+  -p 5432:5432 -d postgres:18
+
+# Conectar pelo terminal
+docker exec -it pg-livro psql -U app -d app
+\end{lstlisting}
+
+\begin{caixadica}
+No \texttt{psql}, \texttt{\textbackslash dt} lista tabelas, \texttt{\textbackslash d tabela}
+descreve o schema, e \texttt{\textbackslash q} sai. Entender o dado ``na unha''
+via SQL puro é o que diferencia seniors — os ORMs do capítulo~\ref{cap:orms}
+escondem, mas não substituem, essa habilidade.
+\end{caixadica}
+
+\section{Modelagem: tabelas, tipos e constraints}
+
+Antes do SQL, o modelo conceitual: a Figura~\ref{fig:der-ecommerce} mostra as
+entidades do e-commerce e seus relacionamentos (1:N). Todo o código desta
+seção implementa exatamente esse desenho.
+
+\begin{figure}[htbp]
+  \centering
+  \diagramatikz{%
+  \begin{tikzpicture}[
+      ent/.style={draw=primaria, fill=azulclaro, rounded corners=2pt,
+        align=center, inner sep=5pt, font=\footnotesize},
+      rel/.style={thick, color=secundaria},
+      font=\footnotesize
+    ]
+    \node[ent] (clientes) at (0,0) {clientes\\id, nome, email};
+    \node[ent] (pedidos) at (4.7,0) {pedidos\\id, status, cliente\_id};
+    \node[ent] (itens) at (9.9,0) {pedido\_itens\\pedido\_id, produto\_id\\quantidade, preco};
+    \node[ent] (categorias) at (0,-3.7) {categorias\\id, nome};
+    \node[ent] (produtos) at (4.7,-3.7) {produtos\\id, nome, preco};
+    \draw[rel] (clientes) -- node[near start, above] {1}
+      node[near end, above] {N} (pedidos);
+    \draw[rel] (pedidos) -- node[near start, above] {1}
+      node[near end, above] {N} (itens);
+    \draw[rel] (produtos) -- node[near start, left] {1}
+      node[near end, right] {N} (itens.south);
+    \draw[rel] (categorias) -- node[near start, above] {1}
+      node[near end, above] {N} (produtos);
+  \end{tikzpicture}}
+  \caption{DER do e-commerce: clientes 1:N pedidos 1:N pedido\_itens N:1
+  produtos N:1 categorias.}
+  \label{fig:der-ecommerce}
+\end{figure}
+
+\begin{lstlisting}[style=livro, language=SQL,
+  caption={Modelo de um e-commerce (tabelas, chaves e constraints).},
+  label={list:sql-modelo}]
+CREATE TABLE clientes (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome       TEXT NOT NULL,
+  email      TEXT NOT NULL UNIQUE,
+  criado_em  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE produtos (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome           TEXT NOT NULL,
+  preco_centavos INTEGER NOT NULL CHECK (preco_centavos >= 0),
+  em_estoque     BOOLEAN NOT NULL DEFAULT true
+);
+
+CREATE TABLE pedidos (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cliente_id  UUID NOT NULL REFERENCES clientes(id),
+  status      TEXT NOT NULL DEFAULT 'pendente'
+              CHECK (status IN ('pendente','pago','enviado','entregue','cancelado')),
+  criado_em   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE pedido_itens (
+  pedido_id   UUID NOT NULL REFERENCES pedidos(id),
+  produto_id  UUID NOT NULL REFERENCES produtos(id),
+  quantidade  INTEGER NOT NULL CHECK (quantidade > 0),
+  preco_centavos INTEGER NOT NULL CHECK (preco_centavos >= 0),
+  PRIMARY KEY (pedido_id, produto_id)
+);
+\end{lstlisting}
+
+\begin{caixadica}
+\textbf{Moeda como inteiro} (\texttt{preco\_centavos}) evita os erros de ponto
+flutuante que assombram sistemas financeiros (0.1 + 0.2 $\neq$ 0.3). Essa
+decisão de modelagem é clássica em entrevistas de backend — e a tabela
+\texttt{pedido\_itens} guarda o \emph{preço na hora da compra}, porque o preço
+do produto pode mudar depois.
+\end{caixadica}
+
+\section{Consultas: SELECT, JOIN e agregações}
+
+\begin{lstlisting}[style=livro, language=SQL,
+  caption={JOIN e agregação com GROUP BY.}, label={list:sql-join}]
+-- Pedidos de cada cliente com valor total
+SELECT c.nome,
+       COUNT(DISTINCT p.id) AS total_pedidos,
+       COALESCE(SUM(pi.quantidade * pi.preco_centavos), 0) AS valor_total
+FROM clientes c
+LEFT JOIN pedidos p      ON p.cliente_id = c.id
+LEFT JOIN pedido_itens pi ON pi.pedido_id = p.id
+GROUP BY c.id, c.nome
+ORDER BY valor_total DESC
+LIMIT 10;
+\end{lstlisting}
+
+\begin{lstlisting}[style=livro, language=SQL,
+  caption={Subquery e CTE (WITH) para legibilidade.}, label={list:sql-cte}]
+WITH vendas_por_produto AS (
+  SELECT pr.nome, SUM(pi.quantidade) AS vendas
+  FROM pedido_itens pi
+  JOIN produtos pr ON pr.id = pi.produto_id
+  GROUP BY pr.id, pr.nome
+)
+SELECT nome, vendas
+FROM vendas_por_produto
+WHERE vendas > 100
+ORDER BY vendas DESC;
+\end{lstlisting}
+
+\begin{caixaconceito}
+A \textbf{ordem lógica} de um \texttt{SELECT} é: \texttt{FROM}/\texttt{JOIN}
+(junta as tabelas) $\rightarrow$ \texttt{WHERE} (filtra linhas)
+$\rightarrow$ \texttt{GROUP BY} (agrupa) $\rightarrow$ \texttt{HAVING}
+(filtra grupos) $\rightarrow$ \texttt{SELECT} (projeta colunas)
+$\rightarrow$ \texttt{ORDER BY}/\texttt{LIMIT}. Entender essa ordem explica
+quase todos os ``porquês'' do SQL — por exemplo, por que um alias de
+\texttt{SELECT} não funciona no \texttt{WHERE}.
+\end{caixaconceito}
+
+\section{Índices e performance}
+
+\begin{lstlisting}[style=livro, language=SQL,
+  caption={Índices e explicação do plano.}, label={list:sql-indice}]
+CREATE INDEX idx_pedidos_cliente ON pedidos (cliente_id);
+CREATE INDEX idx_produtos_nome
+  ON produtos USING gin (to_tsvector('portuguese', nome));
+
+-- Veja o plano de execução real
+EXPLAIN ANALYZE
+SELECT * FROM pedidos WHERE cliente_id = '...';
+\end{lstlisting}
+
+\begin{caixaconceito}
+Um \textbf{índice} é como o índice\index{índice} remissivo de um livro: acelera buscas em
+troca de espaço de escrita. Regra prática: indexe colunas usadas em
+\texttt{WHERE}, \texttt{JOIN} e \texttt{ORDER BY} — mas não indexe tudo
+(escritas ficam lentas). E \emph{sempre} confirme com \texttt{EXPLAIN
+ANALYZE}: sem medição, otimização é palpite.
+\end{caixaconceito}
+
+\section{Transações: tudo ou nada}
+
+\begin{lstlisting}[style=livro, language=SQL,
+  caption={Transação com ROLLBACK em caso de erro.}, label={list:sql-transacao}]
+BEGIN;
+INSERT INTO pedidos (cliente_id, status) VALUES ('...', 'pendente');
+INSERT INTO pedido_itens (pedido_id, produto_id, quantidade, preco_centavos)
+  VALUES ('...', '...', 2, 4500);
+COMMIT;   -- se qualquer INSERT falhar: ROLLBACK e nada é gravado
+\end{lstlisting}
+
+\begin{caixaconceito}
+Transação\index{transação} = \emph{ou tudo acontece, ou nada}. Se o segundo INSERT falhar
+(produto inexistente, constraint violada), o primeiro também é desfeito. Sem
+transação, você teria um pedido ``pendente'' sem itens — o tipo de
+inconsistência que destrói a confiança em um produto.
+\end{caixaconceito}
+
+\section{Recursos do PostgreSQL 18 que você usará}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \textbf{UUIDv7}: IDs ordenáveis por tempo — ótimos para índices e
+  particionamento, e impossíveis de adivinhar (diferente de \texttt{SERIAL});
+  \item \textbf{JSONB}: dados semi-estruturados dentro do relacional (com
+  índices \texttt{GIN});
+  \item \textbf{Full-text search}: busca em português com
+  \texttt{to\_tsvector}/\texttt{to\_tsquery};
+  \item \textbf{Colunas geradas}: valores derivados calculados pelo banco;
+  \item \textbf{Views e materialized views}: consultas reutilizáveis e cache
+  de agregações.
+\end{itemize}
+
+\section{Conectando o Node ao PostgreSQL com \texttt{pg}}
+
+\begin{lstlisting}[style=livro, language=TypeScript,
+  caption={Conexão com pool e consulta parametrizada.}, label={list:pg-node}]
+import { Pool } from "pg";
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 10, // tamanho do pool de conexões
+});
+
+// Sempre parametrizado ($1, $2...) — nunca concatene SQL (cap. 19)
+async function buscarClientePorEmail(email: string) {
+  const resultado = await pool.query(
+    "SELECT id, nome, email FROM clientes WHERE email = $1",
+    [email],
+  );
+  return resultado.rows[0];
+}
+
+// Transação com cliente dedicado
+async function criarPedido(clienteId: string, itens: Array<{ produtoId: string; qtd: number }>) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("BEGIN");
+    const pedido = await cliente.query(
+      "INSERT INTO pedidos (cliente_id, status) VALUES ($1, 'pendente') RETURNING id",
+      [clienteId],
+    );
+    for (const item of itens) {
+      await cliente.query(
+        `INSERT INTO pedido_itens (pedido_id, produto_id, quantidade, preco_centavos)
+         SELECT $1, id, $2, preco_centavos FROM produtos WHERE id = $3`,
+        [pedido.rows[0].id, item.qtd, item.produtoId],
+      );
+    }
+    await cliente.query("COMMIT");
+  } catch (erro) {
+    await cliente.query("ROLLBACK");
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+}
+\end{lstlisting}
+
+\begin{caixadica}
+O \textbf{pool} reutiliza conexões — abrir uma conexão por requisição é
+caro e derruba o banco sob carga. O \texttt{max} define o teto; o PostgreSQL
+aceita por padrão 100 conexões, então dimensione conscientemente.
+\end{caixadica}
+
+% ============================================================================
+\section{Projeto do capítulo: modelo de dados de um e-commerce}
+\label{sec:projeto12}
+
+\begin{caixaprojeto}
+\textbf{Objetivo:} projetar e implementar o schema completo de um e-commerce
+real: clientes, endereços, produtos, categorias, estoque, pedidos e itens.
+
+\textbf{Critérios de aceite:}
+\begin{itemize}[leftmargin=*, itemsep=0.2em]
+  \item Diagrama entidade--relacionamento (DER) documentado antes do código;
+  \item Schema com 6+ tabelas, chaves estrangeiras e constraints (\texttt{CHECK}, \texttt{UNIQUE}, \texttt{NOT NULL});
+  \item Tipos corretos: \texttt{UUID}, \texttt{TIMESTAMPTZ}, preço em centavos;
+  \item Seed com dados realistas (5 clientes, 15 produtos, 20 pedidos);
+  \item 5 consultas de relatório (faturamento por mês, ticket médio, top produtos, clientes inativos, estoque baixo);
+  \item \texttt{EXPLAIN ANALYZE} documentado para as consultas com índice.
+\end{itemize}
+\end{caixaprojeto}
+
+\begin{caixadica}
+Este schema é o ``DNA'' de dezenas de produtos: marketplace (capítulo~\ref{cap:fullstack}),
+loja, SaaS com assinatura. Guarde-o — você vai reusá-lo com Prisma no
+capítulo~\ref{cap:orms} e protegê-lo no capítulo~\ref{cap:seguranca}.
+\end{caixadica}
+
+\section{Exercícios de fixação}
+
+\begin{exercicios}
+  \item Explique ACID com um exemplo de transferência bancária.
+  \item Modele a tabela \texttt{pedido\_itens} (pedido, produto, quantidade, preço) com as chaves corretas.
+  \item Escreva um \texttt{SELECT} com \texttt{JOIN} de 3 tabelas e uma agregação.
+  \item O que um índice faz? Quando \emph{não} criar um?
+  \item Por que armazenar dinheiro como inteiro (centavos)?
+  \item O que faz \texttt{BEGIN}/\texttt{COMMIT}/\texttt{ROLLBACK}?
+\end{exercicios}
+
+\section{Desafios}
+
+\begin{desafios}
+  \item \textbf{Faturamento mensal}: escreva a consulta que retorna faturamento por mês usando \texttt{date\_trunc} e \texttt{GROUP BY}.
+  \item \textbf{Full-text}: implemente busca ``encontre produto'' com \texttt{to\_tsvector} em português e índice GIN.
+  \item \textbf{Trigger e estoque}: crie um \texttt{TRIGGER} que decrementa o estoque automaticamente ao inserir um item de pedido.
+  \item \textbf{Relatórios}: implemente as 5 consultas de relatório do projeto e documente o resultado de cada uma.
+\end{desafios}
+
+\section{Exercícios de nível sênior}
+
+\begin{seniores}
+  \item \textbf{Isolamento e concorrência}: explique (com exemplo) o que é \emph{race condition} em estoque e resolva com \texttt{SELECT ... FOR UPDATE} ou transação serializável.
+  \item \textbf{Janelas (window functions)}: calcule o total acumulado de vendas por mês com \texttt{SUM() OVER (ORDER BY mes)}.
+  \item \textbf{Performance real}: com um dataset de 1 milhão de pedidos (gerados por script), otimize uma consulta lenta até \texttt{EXPLAIN ANALYZE} mostrar \emph{Index Scan}, e documente o antes/depois.
+  \item \textbf{Backup e restauração}: pratique \texttt{pg\_dump} e restauração em outro banco, e escreva um procedimento de backup documentado.
+\end{seniores}
+
+\section{Armadilhas comuns}
+
+\begin{itemize}[leftmargin=*, itemsep=0.4em]
+  \item \texttt{SELECT *} em produção (traga só o que precisa);
+  \item Esquecer \texttt{WHERE} em \texttt{UPDATE}/\texttt{DELETE} (desastre);
+  \item Comparar \texttt{TEXT} com \texttt{UUID} (perde índice e trava);
+  \item Ponto flutuante para dinheiro;
+  \item Fazer N+1 queries em vez de um \texttt{JOIN} (você verá isso nos ORMs);
+  \item Esquecer \texttt{EXPLAIN ANALYZE} antes de ``otimizar''.
+\end{itemize}
+
+\section{Resumo do capítulo}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item PostgreSQL 18 é o banco nº 1: relacional, ACID, extensível;
+  \item Modelagem correta (tipos, constraints, chaves) previne bugs de dados;
+  \item \texttt{JOIN}, agregações e CTEs resolvem os relatórios do mundo real;
+  \item Índices aceleram leitura; transações garantem consistência;
+  \item \texttt{pg} com pool e queries parametrizadas conecta o Node ao banco;
+  \item Projeto entregue: schema completo de e-commerce com relatórios.
+\end{itemize}
+
+\section{Referências oficiais para aprofundar}
+
+\begin{itemize}[leftmargin=*, itemsep=0.3em]
+  \item Documentação oficial do PostgreSQL 18: \url{https://www.postgresql.org/docs/current/}
+  \item Tutorial SQL oficial: \url{https://www.postgresql.org/docs/current/tutorial.html}
+  \item PostgreSQL 18 (anúncio): \url{https://www.postgresql.org/about/news/postgresql-18-released-3142/}
+  \item PgAdmin (ferramenta oficial): \url{https://www.pgadmin.org}
+\end{itemize}

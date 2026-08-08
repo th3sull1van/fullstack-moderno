@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/webpack-budgets.json",
+  "comment": "Orçamentos de bundle aplicados no next.config (experimental.budgets). Alvos: JS inicial <= 300 kB (gzip ~90 kB), imagem <= 500 kB, total <= 1 MB.",
+  "budgets": [
+    {
+      "resourceType": "script",
+      "budget": 300000,
+      "error": true
+    },
+    {
+      "resourceType": "image",
+      "budget": 500000,
+      "error": false
+    },
+    {
+      "resourceType": "total",
+      "budget": 1000000,
+      "error": false
+    }
+  ]
+}
