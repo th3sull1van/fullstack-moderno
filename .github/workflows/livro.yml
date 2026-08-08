@@ -42,6 +42,11 @@ jobs:
       - name: Compilar PDF (auto-instala pacotes faltantes)
         run: |
           for i in 1 2 3 4 5 6; do
+            # Latexmk cacheia o estado em main.fdb_latexmk e, se a rodada
+            # anterior falhou, diz "Nothing to do" sem recompilar. Apagar o
+            # estado força recompilação real a cada tentativa.
+            rm -f livro/main.fdb_latexmk livro/main.aux livro/main.xdv \
+              livro/main.toc livro/main.out livro/main.idx
             if bash scripts/build-pdf.sh; then exit 0; fi
             miss=$(grep -oE "File \`[^']+\.(sty|cls|def|cfg)' not found" \
               livro/main.log 2>/dev/null | sed "s/File \`//;s/' not found//" \
@@ -71,6 +76,8 @@ jobs:
       - name: Compilar EPUB (auto-instala pacotes faltantes)
         run: |
           for i in 1 2 3 4 5 6; do
+            rm -f livro/main.fdb_latexmk livro/main.aux livro/main.xdv \
+              livro/main.toc livro/main.out livro/main.idx
             if bash scripts/build-epub.sh; then exit 0; fi
             miss=$(grep -oE "File \`[^']+\.(sty|cls|def|cfg)' not found" \
               livro/epub-build.log 2>/dev/null | sed "s/File \`//;s/' not found//" \
