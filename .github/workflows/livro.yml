@@ -29,7 +29,7 @@ jobs:
             latexmk xetex biber fontspec babel-portuges microtype xcolor \
             listings tcolorbox fancyhdr titlesec enumitem booktabs tools \
             caption hyperref xurl biblatex etoolbox pgf amsmath amsfonts \
-            tex-gyre csquotes colortbl hyph-utf8 \
+            tex-gyre csquotes colortbl hyph-utf8 tikzfill \
             tex4ebook make4ht luaxml tex4ht
 
       - name: Reconstruir formato XeLaTeX (hifenização pt-BR)
@@ -45,12 +45,23 @@ jobs:
             if bash scripts/build-pdf.sh; then exit 0; fi
             miss=$(grep -oE "File \`[^']+\.(sty|cls|def|cfg)' not found" \
               livro/main.log 2>/dev/null | sed "s/File \`//;s/' not found//" \
-              | sort -u | tr '\n' ' ')
+              | sort -u)
             if [ -z "$miss" ]; then
               echo "Falha sem arquivo faltante identificável"; exit 1
             fi
-            echo ">> Instalando pacotes faltantes: $miss"
-            tlmgr install $miss
+            echo ">> Arquivos faltantes: $miss"
+            for f in $miss; do
+              # Mapeia o arquivo para o pacote que o contém (nome do arquivo
+              # raramente é o nome do pacote: tikzfill.image.sty -> tikzfill).
+              pkg=$(tlmgr search --global --file "/$f" 2>/dev/null \
+                | grep -oE '^[a-z0-9._-]+(?=:)' | head -1)
+              if [ -n "$pkg" ]; then
+                echo ">> Instalando pacote '$pkg' (contém $f)"
+                tlmgr install "$pkg"
+              else
+                echo "ERRO: nenhum pacote contém $f"; exit 1
+              fi
+            done
           done
           exit 1
 
@@ -60,12 +71,21 @@ jobs:
             if bash scripts/build-epub.sh; then exit 0; fi
             miss=$(grep -oE "File \`[^']+\.(sty|cls|def|cfg)' not found" \
               livro/epub-build.log 2>/dev/null | sed "s/File \`//;s/' not found//" \
-              | sort -u | tr '\n' ' ')
+              | sort -u)
             if [ -z "$miss" ]; then
               echo "Falha sem arquivo faltante identificável"; exit 1
             fi
-            echo ">> Instalando pacotes faltantes: $miss"
-            tlmgr install $miss
+            echo ">> Arquivos faltantes: $miss"
+            for f in $miss; do
+              pkg=$(tlmgr search --global --file "/$f" 2>/dev/null \
+                | grep -oE '^[a-z0-9._-]+(?=:)' | head -1)
+              if [ -n "$pkg" ]; then
+                echo ">> Instalando pacote '$pkg' (contém $f)"
+                tlmgr install "$pkg"
+              else
+                echo "ERRO: nenhum pacote contém $f"; exit 1
+              fi
+            done
           done
           exit 1
 
