@@ -26,7 +26,7 @@ jobs:
         run: |
           tlmgr option repository https://mirror.ctan.org/systems/texlive/tlnet
           tlmgr install \
-            latexmk xetex biber fontspec babel-portuges microtype xcolor \
+            latexmk xetex biber makeindex fontspec babel-portuges microtype xcolor \
             listings tcolorbox fancyhdr titlesec enumitem booktabs tools \
             caption hyperref xurl biblatex etoolbox pgf amsmath amsfonts \
             tex-gyre csquotes colortbl hyph-utf8 tikzfill \
